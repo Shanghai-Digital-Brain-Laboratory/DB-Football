@@ -7,7 +7,7 @@
 [![Release Version](https://img.shields.io/badge/release-0.1.0-red.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 
-This repo provides a simple, distributed and asynchronous multi-agent reinforcement learning framework for the [Google Research Football](https://github.com/google-research/football) environment. Currently, it is **dedicated** for **Google Research Football** environment with the cooperation part implemented in **IPPO**/**MAPPO** and the competition part implemented in **PSRO/Simple League**. In the future, we will also release codes for other related algorithms and environments.
+This repo provides a simple, distributed and asynchronous multi-agent reinforcement learning framework for the [Google Research Football](https://github.com/google-research/football) environment. Currently, it is **dedicated** for **Google Research Football** environment with the cooperative part implemented in **IPPO**/**MAPPO** and the competitive part implemented in **PSRO/Simple League**. In the future, we will also release codes for other related algorithms and environments.
 
 ![图片2](https://user-images.githubusercontent.com/25078430/201863924-37af4012-4c96-4482-aaf8-818ac351320b.png)
 
