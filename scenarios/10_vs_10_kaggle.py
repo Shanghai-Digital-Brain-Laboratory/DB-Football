@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+'''
+Modified from google research football's codes.
+'''
+
 from . import *
 
 def build_scenario(builder):
