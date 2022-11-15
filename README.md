@@ -1,3 +1,6 @@
+
+![img_v2_4a7d4460-005b-4ab9-a316-472f873ec93g](https://user-images.githubusercontent.com/25078430/201826696-dea2fd8c-c643-4d93-813f-a2179ab4e779.png)
+
 # Light-MALib
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](./LICENSE)
@@ -16,6 +19,7 @@ If you have further needs beyond this repo, please refer to [**MALib**](https://
 1. Install
 2. Run Experiments
 3. Contact
+4. Join Us
 
 ## Install
 You can use any tool to manage your python environment. Here, we use conda as an example.
@@ -41,3 +45,26 @@ You can use any tool to manage your python environment. Here, we use conda as an
 
 ## Contact
 If you have any questions about this repo, feel free to leave an issue. You can also contact current maintainers, [YanSong97](https://github.com/YanSong97) and [DiligentPanda](https://github.com/DiligentPanda), by email.
+
+## Join Us
+Get Interested in our project? Or have great passions in:
+1. Multi-Agent Learning and Game AI
+2. Operation Research and Optimization
+3. Robotics and Control
+4. Visual and Graphic Intelligence
+5. Data Mining and so on
+
+Welcome! Why now take a look at https://digitalbrain.cn/talents?
+
+With the leading scientists, enginneers and field experts, we are going to provide **Better Decisions for Better World**!
+
+### Recruitment
+
+![img_v2_a62bf155-175b-4e7b-8462-a2421fbfd74g](https://user-images.githubusercontent.com/25078430/201830084-ebb731db-9a84-4e37-b6e1-7dbb34bc8fc1.png)
+
+### Recruitment for Students & Internships
+
+![img_v2_78c32ef2-eeb7-44b3-8cba-b9b90a67b8bg](https://user-images.githubusercontent.com/25078430/201830117-5ff5daf0-df66-4eee-bf82-109838d42e17.png)
+
+
+
