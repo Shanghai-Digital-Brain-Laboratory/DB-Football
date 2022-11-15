@@ -1,19 +1,17 @@
 
 ![img_v2_4a7d4460-005b-4ab9-a316-472f873ec93g](https://user-images.githubusercontent.com/25078430/201826696-dea2fd8c-c643-4d93-813f-a2179ab4e779.png)
 
-# Light-MALib
+# DB-Football
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](./LICENSE)
 [![Release Version](https://img.shields.io/badge/release-0.1.0-red.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 
-This repo mainly provides a **simplified** version of [**MALib**](https://github.com/sjtu-marl/malib) codes with restricted algorithms but also certain enhancements like distributed async-training, league-like multiple population training, detailed tensorboard logging.
+This repo provides a simple, distributed and asynchronous multi-agent reinforcement learning framework for the [Google Research Football](https://github.com/google-research/football) environment. Currently, it is **dedicated** for **Google Research Football** environment with the cooperation part implemented in **IPPO**/**MAPPO** and the competition part implemented in **PSRO/Simple League**. In the future, we will also release codes for other related algorithms and environments.
 
-Currently, it is **dedicated** for **Google Research Football** environment. <u>In the future, we will also release codes for other algorithms and environments</u>.
+![图片2](https://user-images.githubusercontent.com/25078430/201863924-37af4012-4c96-4482-aaf8-818ac351320b.png)
 
-Our codes are designed to be easy to modify, therefore relatively **light-weighted** compared to the original delicately-designed [**MALib**](https://github.com/sjtu-marl/malib) codes, which have full support for the study of cutting-edge Multi-Agent RL algorithms. So we name our repo **Light-MALib**.
-
-If you have further needs beyond this repo, please refer to [**MALib**](https://github.com/sjtu-marl/malib) for more support.
+Our codes are based on Light-MALib, which is a simplified version of [MALib](https://github.com/sjtu-marl/malib) with restricted algorithms and environments but certain enhancements, like distributed async-training, league-like multiple population training, detailed tensorboard logging. If you are also interested in other Multi-Agent Learning algorithms and environments, you may also refer to [MALib](https://github.com/sjtu-marl/malib) for more details.
 
 ## Contents
 1. Install
@@ -42,6 +40,16 @@ You can use any tool to manage your python environment. Here, we use conda as an
 1. If you want to run experiments on a small cluster, please follow [ray](https://docs.ray.io/en/latest/ray-core/starting-ray.html)'s official instructions to start a cluster. For example, use `ray start --head` on the master, then connect other machines to the master following the hints from command line output.
 2. `python light_malib/main_pbt.py --config <config_file_path>` to run a training experiment. An example is given by `train_light_malib.sh`.
 3. `python light_malib/scripts/play_gr_football.py` to run a competition between two models. 
+
+## Google Reseach Football Toolkit
+Currently, we provide the following tools for better study in the field of Football AI.
+1. [Google Football Game Graph](light_malib/envs/gr_football/game_graph/): A data structure representing a game as a tree structure with branching indicating important events like goals or intercepts.
+
+![game graph](https://user-images.githubusercontent.com/25078430/201862832-82b09ddc-1e50-4dcc-b804-c6d24c9a9381.png)
+
+2. [Google Football Game Debugger](light_malib/envs/gr_football/debugger/): A single-step graphical debugger illustrating both 3D and 2D frames with detailed frame data, such as the movements of players and the ball.
+
+![game debugger](https://user-images.githubusercontent.com/25078430/201862116-067d23cf-a1d9-4628-bf64-9c8b0b2986d5.png)
 
 ## Contact
 If you have any questions about this repo, feel free to leave an issue. You can also contact current maintainers, [YanSong97](https://github.com/YanSong97) and [DiligentPanda](https://github.com/DiligentPanda), by email.
