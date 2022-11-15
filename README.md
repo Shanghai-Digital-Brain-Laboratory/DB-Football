@@ -54,7 +54,7 @@ Get Interested in our project? Or have great passions in:
 4. Visual and Graphic Intelligence
 5. Data Mining and so on
 
-Welcome! Why now take a look at https://digitalbrain.cn/talents?
+Welcome! Why not take a look at https://digitalbrain.cn/talents?
 
 With the leading scientists, enginneers and field experts, we are going to provide **Better Decisions for Better World**!
 
@@ -65,6 +65,3 @@ With the leading scientists, enginneers and field experts, we are going to provi
 ### Recruitment for Students & Internships
 
 ![img_v2_78c32ef2-eeb7-44b3-8cba-b9b90a67b8bg](https://user-images.githubusercontent.com/25078430/201830117-5ff5daf0-df66-4eee-bf82-109838d42e17.png)
-
-
-
