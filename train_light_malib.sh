@@ -1,0 +1,1 @@
+python light_malib/main_pbt.py --config light_malib/expr/gr_football/expr_10_vs_10_psro.yaml
