@@ -217,7 +217,7 @@ def non_centered_rmsprop(
     :return:
     """
 
-    gradient = alpha * gradient + (1.0 - alpha) * delta ** 2
+    gradient = alpha * gradient + (1.0 - alpha) * delta**2
     delta = -eta * delta / np.sqrt(gradient + eps)
     return delta
 

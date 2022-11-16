@@ -21,6 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
 class ELO:
     def __init__(self):
         pass
@@ -57,7 +58,7 @@ class EloManager:
         :return: the updated rating
         """
 
-        assert len(latest_score) == 2, print('latest score = ', latest_score)
+        assert len(latest_score) == 2, print("latest score = ", latest_score)
 
         players = list(latest_score.keys())
         E0, E1 = self._compute_expect_score(*players)

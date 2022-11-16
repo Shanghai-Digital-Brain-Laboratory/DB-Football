@@ -20,92 +20,62 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-TEAMS=lambda x: [
-    "left", # left
-    "right", # right
-    "none", # free
+TEAMS = lambda x: [
+    "left",  # left
+    "right",  # right
+    "none",  # free
 ][x]
 
-ROLES=lambda x: [
-    "GK",
-    "CB",
-    "LB",
-    "RB",
-    "DM",
-    "CM",
-    "LM",
-    "RM",
-    "AM",
-    "CF"    
-][x]
+ROLES = lambda x: ["GK", "CB", "LB", "RB", "DM", "CM", "LM", "RM", "AM", "CF"][x]
 
-SIMPLE_ROLES=lambda x: [
-    "G",
-    "c",
-    "l",
-    "r",
-    "D",
-    "C",
-    "L",
-    "R",
-    "A",
-    "F"    
-][x]
+SIMPLE_ROLES = lambda x: ["G", "c", "l", "r", "D", "C", "L", "R", "A", "F"][x]
 
-GAME_MODES= lambda x:[
+GAME_MODES = lambda x: [
     "normal",
     "kick off",
     "goal kick",
     "free kick",
     "corner",
     "throw-in",
-    "penalty"
+    "penalty",
 ][x]
 
-ACTIONS=lambda x: [
+ACTIONS = lambda x: [
     "none",
-    "\u2190", # 左 1
-    "\u2196", # 上左
-    "\u2191", # 上
-    "\u2197", # 上右
-    "\u2192", # 右
-    "\u2198", # 下右
-    "\u2193", # 下
-    "\u2199", # 下左 8
-    "long pass", # 9
-    "high pass", # 10
-    "short pass", # 11
-    "shot", # 12
-    "sprint", # 13
-    "no direction", # 14
-    "no sprint", # 15
-    "slide", # 16
-    "dribble", # 17
-    "no dribble", # 18
-    "built-in ai", # 19
-    "-" # not controlled
+    "\u2190",  # 左 1
+    "\u2196",  # 上左
+    "\u2191",  # 上
+    "\u2197",  # 上右
+    "\u2192",  # 右
+    "\u2198",  # 下右
+    "\u2193",  # 下
+    "\u2199",  # 下左 8
+    "long pass",  # 9
+    "high pass",  # 10
+    "short pass",  # 11
+    "shot",  # 12
+    "sprint",  # 13
+    "no direction",  # 14
+    "no sprint",  # 15
+    "slide",  # 16
+    "dribble",  # 17
+    "no dribble",  # 18
+    "built-in ai",  # 19
+    "-",  # not controlled
 ][x]
 
-DIRECTIONS=lambda x: [
-    "\u2190", # 左
-    "\u2196", # 上左
-    "\u2191", # 上
-    "\u2197", # 上右
-    "\u2192", # 右
-    "\u2198", # 下右
-    "\u2193", # 下
-    "\u2199", # 下左
-    "-"
+DIRECTIONS = lambda x: [
+    "\u2190",  # 左
+    "\u2196",  # 上左
+    "\u2191",  # 上
+    "\u2197",  # 上右
+    "\u2192",  # 右
+    "\u2198",  # 下右
+    "\u2193",  # 下
+    "\u2199",  # 下左
+    "-",
 ][x]
 
-INSTRUCTIONS=lambda x: [
-    "RUN",
-    "PASS",
-    "SHOT",
-    "SLIDE"
-][x]
+INSTRUCTIONS = lambda x: ["RUN", "PASS", "SHOT", "SLIDE"][x]
 
-USE_NEW_INSTRUCTIONS=lambda x:[
-    "OLD",
-    "NEW"
-][x]
+USE_NEW_INSTRUCTIONS = lambda x: ["OLD", "NEW"][x]

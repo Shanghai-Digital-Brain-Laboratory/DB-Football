@@ -29,6 +29,7 @@ from light_malib.utils.preprocessor import get_preprocessor
 from ..common.model import get_model
 from ..utils import RNNLayer, init_fc_weights
 
+
 class RNNNet(nn.Module):
     def __init__(
         self,

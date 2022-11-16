@@ -26,4 +26,6 @@ from light_malib.algorithm.mappo.policy import MAPPO
 
 from light_malib.envs.gr_football.env import GRFootballEnv
 
-from light_malib.framework.scheduler.stopper.common.win_rate_stopper import WinRateStopper
+from light_malib.framework.scheduler.stopper.common.win_rate_stopper import (
+    WinRateStopper,
+)

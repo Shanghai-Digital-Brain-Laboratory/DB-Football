@@ -23,6 +23,7 @@
 import sys
 import numpy as np
 from absl import logging
+
 logging.set_verbosity(logging.INFO)
 
 from gfootball.env import create_environment
@@ -33,38 +34,31 @@ env = create_environment(
     number_of_left_players_agent_controls=1,
     number_of_right_players_agent_controls=0,
     representation="raw",
-    render=True, # set to True will save large-size RGB frame.
+    render=True,  # set to True will save large-size RGB frame.
     write_full_episode_dumps=True,
     logdir="./temp",
-    other_config_options={
-        "sorted_observations":True
-    }
+    other_config_options={"sorted_observations": True},
 )
 
-tracer=MatchTracer()
+tracer = MatchTracer()
 
 # now, only need to provide those two parameters.
-tracer.update_settings(
-    {
-        "n_left_control":1,
-        "n_right_control":0
-    }
-)
+tracer.update_settings({"n_left_control": 1, "n_right_control": 0})
 
 print("test_tracer")
-obs=env.reset()
+obs = env.reset()
 steps = 0
 print(steps)
 while True:
     try:
-        actions=env.action_space.sample()
-        if isinstance(actions,int):
-            actions=[actions]
-        tracer.update(obs,actions)
+        actions = env.action_space.sample()
+        if isinstance(actions, int):
+            actions = [actions]
+        tracer.update(obs, actions)
         obs, rew, done, info = env.step(actions)
         steps += 1
         if steps % 100 == 0:
-            print(steps,rew)
+            print(steps, rew)
         if done:
             tracer.update(obs)
             tracer.save("temp/random_play.trace")
@@ -72,4 +66,3 @@ while True:
     except:
         tracer.save("temp/random_play.trace")
         break
-

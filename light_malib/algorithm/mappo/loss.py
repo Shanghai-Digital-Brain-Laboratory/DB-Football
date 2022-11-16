@@ -27,24 +27,29 @@ from light_malib.algorithm.common.loss_func import LossFunc
 from light_malib.utils.logger import Logger
 from light_malib.registry import registry
 
+
 def huber_loss(e, d):
     a = (abs(e) <= d).float()
     b = (e > d).float()
-    return a * e ** 2 / 2 + b * d * (abs(e) - d / 2)
+    return a * e**2 / 2 + b * d * (abs(e) - d / 2)
+
 
 def mse_loss(e):
-    return (e ** 2) / 2
+    return (e**2) / 2
 
-def to_value(tensor:torch.Tensor):
+
+def to_value(tensor: torch.Tensor):
     return tensor.detach().cpu().item()
 
-def basic_stats(name,tensor:torch.Tensor):
-    stats={}
-    stats["{}_max".format(name)]=to_value(tensor.max())
-    stats["{}_min".format(name)]=to_value(tensor.min())
-    stats["{}_mean".format(name)]=to_value(tensor.mean())
-    stats["{}_std".format(name)]=to_value(tensor.std())
+
+def basic_stats(name, tensor: torch.Tensor):
+    stats = {}
+    stats["{}_max".format(name)] = to_value(tensor.max())
+    stats["{}_min".format(name)] = to_value(tensor.min())
+    stats["{}_mean".format(name)] = to_value(tensor.mean())
+    stats["{}_std".format(name)] = to_value(tensor.std())
     return stats
+
 
 @registry.registered(registry.LOSS)
 class MAPPOLoss(LossFunc):
@@ -60,8 +65,8 @@ class MAPPOLoss(LossFunc):
         # self._use_policy_active_masks = False
 
         self._use_max_grad_norm = True
-        
-        # the following are useless now        
+
+        # the following are useless now
         self.inner_clip_param = 0.1
         self.use_modified_mappo = False
         self.use_inner_clip = False
@@ -104,17 +109,16 @@ class MAPPOLoss(LossFunc):
             )
 
     def loss_compute(self, sample):
-        policy=self._policy
-        self.clip_param = policy.custom_config.get("clip_param",0.2)
-        self.max_grad_norm = policy.custom_config.get("max_grad_norm",10)
-        
-        self.use_modified_mappo = policy.custom_config.get("use_modified_mappo",False)
-        
-        n_agent=4
+        policy = self._policy
+        self.clip_param = policy.custom_config.get("clip_param", 0.2)
+        self.max_grad_norm = policy.custom_config.get("max_grad_norm", 10)
+
+        self.use_modified_mappo = policy.custom_config.get("use_modified_mappo", False)
+
+        n_agent = 4
         self._policy.opt_cnt += 1
         # cast = lambda x: torch.FloatTensor(x.copy()).to(self._policy.device)
         (
-            
             obs_batch,
             actions_batch,
             value_preds_batch,
@@ -132,14 +136,14 @@ class MAPPOLoss(LossFunc):
             sample[EpisodeKey.ACTION].long(),
             sample[EpisodeKey.STATE_VALUE],
             sample[EpisodeKey.RETURN],
-            sample.get(EpisodeKey.ACTIVE_MASK,None),
+            sample.get(EpisodeKey.ACTIVE_MASK, None),
             sample[EpisodeKey.ACTION_DIST],
             sample[EpisodeKey.ACTION_MASK],
             sample[EpisodeKey.ACTOR_RNN_STATE],
             sample[EpisodeKey.CRITIC_RNN_STATE],
             sample[EpisodeKey.DONE],
             sample[EpisodeKey.ADVANTAGE],
-            sample['delta']
+            sample["delta"],
         )
         if EpisodeKey.CUR_STATE in sample:
             share_obs_batch = sample[EpisodeKey.CUR_STATE]
@@ -157,28 +161,34 @@ class MAPPOLoss(LossFunc):
             active_masks_batch,
         )
 
-        actions_batch=actions_batch.reshape(actions_batch.shape[0],1)
+        actions_batch = actions_batch.reshape(actions_batch.shape[0], 1)
         old_action_log_probs_batch = torch.log(
             old_action_probs_batch.gather(-1, actions_batch)
         )
         imp_weights = torch.exp(
             action_log_probs.unsqueeze(-1) - old_action_log_probs_batch
         )
-        approx_kl = (old_action_log_probs_batch - action_log_probs.unsqueeze(-1)).mean().item()
+        approx_kl = (
+            (old_action_log_probs_batch - action_log_probs.unsqueeze(-1)).mean().item()
+        )
 
         if self.use_modified_mappo:
             if self.use_inner_clip:
-                o_imp_weights=imp_weights+1e-9*(imp_weights==0)
+                o_imp_weights = imp_weights + 1e-9 * (imp_weights == 0)
             # #env*#agent
-            imp_weights=imp_weights.view(-1,n_agent)
-            batch_size,n_agent=imp_weights.shape
-            imp_weights=torch.prod(imp_weights,dim=-1,keepdim=True)
-            imp_weights=torch.tile(imp_weights,(1,n_agent))            
-            imp_weights=imp_weights.view(batch_size*n_agent,1)
+            imp_weights = imp_weights.view(-1, n_agent)
+            batch_size, n_agent = imp_weights.shape
+            imp_weights = torch.prod(imp_weights, dim=-1, keepdim=True)
+            imp_weights = torch.tile(imp_weights, (1, n_agent))
+            imp_weights = imp_weights.view(batch_size * n_agent, 1)
             if self.use_inner_clip:
-                imp_weights/=o_imp_weights
-                imp_weights=torch.clamp(imp_weights,1.0-self.inner_clip_param,1.0+self.inner_clip_param)
-                imp_weights*=o_imp_weights
+                imp_weights /= o_imp_weights
+                imp_weights = torch.clamp(
+                    imp_weights,
+                    1.0 - self.inner_clip_param,
+                    1.0 + self.inner_clip_param,
+                )
+                imp_weights *= o_imp_weights
 
         surr1 = imp_weights * adv_targ
         surr2 = (
@@ -187,23 +197,21 @@ class MAPPOLoss(LossFunc):
         )
 
         if self.use_double_clip:
-            surr3=self.double_clip_param*adv_targ
+            surr3 = self.double_clip_param * adv_targ
 
         if active_masks_batch is not None:
-            surr=torch.min(surr1,surr2)
+            surr = torch.min(surr1, surr2)
             if self.use_double_clip:
-                surr=torch.max(surr,surr3)
+                surr = torch.max(surr, surr3)
             policy_action_loss = (
-                -torch.sum(surr, dim=-1, keepdim=True)
-                * active_masks_batch
+                -torch.sum(surr, dim=-1, keepdim=True) * active_masks_batch
             ).sum() / active_masks_batch.sum()
         else:
-            surr=torch.min(surr1,surr2)
+            surr = torch.min(surr1, surr2)
             if self.use_double_clip:
-                mask=(adv_targ<0).float()
-                surr=torch.max(surr,surr3)*mask+surr*(1-mask)
-            policy_action_loss = -torch.sum(surr, dim=-1, keepdim=True
-            ).mean()
+                mask = (adv_targ < 0).float()
+                surr = torch.max(surr, surr3) * mask + surr * (1 - mask)
+            policy_action_loss = -torch.sum(surr, dim=-1, keepdim=True).mean()
 
         self.optimizers["actor"].zero_grad()
         policy_loss = (
@@ -230,7 +238,7 @@ class MAPPOLoss(LossFunc):
             )
         self.optimizers["critic"].step()
 
-        stats=dict(
+        stats = dict(
             ratio=float(imp_weights.detach().mean().cpu().numpy()),
             ratio_std=float(imp_weights.detach().std().cpu().numpy()),
             policy_loss=float(policy_loss.detach().cpu().numpy()),
@@ -238,16 +246,20 @@ class MAPPOLoss(LossFunc):
             entropy=float(dist_entropy.detach().cpu().numpy()),
             approx_kl=approx_kl,
         )
-        
-        stats.update(basic_stats("imp_weights",imp_weights))
-        stats.update(basic_stats("advantages",adv_targ))
-        stats.update(basic_stats('V', values))
-        stats.update(basic_stats('Old_V', value_preds_batch))
-        stats.update(basic_stats('delta', delta))
-        
-        stats["upper_clip_ratio"]=to_value((imp_weights>(1+self.clip_param)).float().mean())
-        stats["lower_clip_ratio"]=to_value((imp_weights<(1-self.clip_param)).float().mean())
-        stats["clip_ratio"]=stats["upper_clip_ratio"]+stats["lower_clip_ratio"]
+
+        stats.update(basic_stats("imp_weights", imp_weights))
+        stats.update(basic_stats("advantages", adv_targ))
+        stats.update(basic_stats("V", values))
+        stats.update(basic_stats("Old_V", value_preds_batch))
+        stats.update(basic_stats("delta", delta))
+
+        stats["upper_clip_ratio"] = to_value(
+            (imp_weights > (1 + self.clip_param)).float().mean()
+        )
+        stats["lower_clip_ratio"] = to_value(
+            (imp_weights < (1 - self.clip_param)).float().mean()
+        )
+        stats["clip_ratio"] = stats["upper_clip_ratio"] + stats["lower_clip_ratio"]
         return stats
 
     def _evaluate_actions(
@@ -259,7 +271,7 @@ class MAPPOLoss(LossFunc):
         actor_rnn_states_batch,
         critic_rnn_states_batch,
         dones_batch,
-        active_masks_batch
+        active_masks_batch,
     ):
 
         logits, _ = self._policy.actor(obs_batch, actor_rnn_states_batch, dones_batch)

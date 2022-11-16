@@ -21,14 +21,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-'''
+"""
 The official simple115_v2 feature observation, added with action mask to align with others.
-'''
+"""
 
 import numpy as np
 from light_malib.utils.logger import Logger
 from gym.spaces import Box
 from gfootball.env.wrappers import Simple115StateWrapper
+
 
 class FeatureEncoder:
     def __init__(self):
@@ -58,7 +59,7 @@ class FeatureEncoder:
 
     @property
     def observation_space(self):
-        return Box(low=-1000, high=1000, shape=[115+19])
+        return Box(low=-1000, high=1000, shape=[115 + 19])
 
     def encode_each(self, state):
         obs = state.obs
@@ -104,9 +105,9 @@ class FeatureEncoder:
                 avail[DRIBBLE],
             ) = (0, 0, 0, 0, 0)
         elif (
-                obs["ball_owned_team"] == -1
-                and ball_distance > 0.03
-                and obs["game_mode"] == 0
+            obs["ball_owned_team"] == -1
+            and ball_distance > 0.03
+            and obs["game_mode"] == 0
         ):  # Ground ball  and far from me
             (
                 avail[LONG_PASS],
@@ -136,7 +137,7 @@ class FeatureEncoder:
         if ball_x < 0.64 or ball_y < -0.27 or 0.27 < ball_y:
             avail[SHOT] = 0
         elif (0.64 <= ball_x and ball_x <= 1.0) and (
-                -0.27 <= ball_y and ball_y <= 0.27
+            -0.27 <= ball_y and ball_y <= 0.27
         ):
             avail[HIGH_PASS], avail[LONG_PASS] = 0, 0
 
@@ -159,7 +160,7 @@ class FeatureEncoder:
 
     def _get_avail_new(self, obs, ball_distance, action_n):
         # avail = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        assert (action_n == 19 or action_n == 20)  # we dont support full action set
+        assert action_n == 19 or action_n == 20  # we dont support full action set
         avail = [1] * action_n
 
         (
@@ -198,9 +199,9 @@ class FeatureEncoder:
             if ball_distance > 0.03:
                 avail[SLIDE] = 0
         elif (
-                obs["ball_owned_team"] == -1
-                and ball_distance > 0.03
-                and obs["game_mode"] == 0
+            obs["ball_owned_team"] == -1
+            and ball_distance > 0.03
+            and obs["game_mode"] == 0
         ):  # Ground ball  and far from me
             (
                 avail[LONG_PASS],
@@ -239,7 +240,7 @@ class FeatureEncoder:
         if ball_x < 0.64 or ball_y < -0.27 or 0.27 < ball_y:
             avail[SHOT] = 0
         elif (0.64 <= ball_x and ball_x <= 1.0) and (
-                -0.27 <= ball_y and ball_y <= 0.27
+            -0.27 <= ball_y and ball_y <= 0.27
         ):
             avail[HIGH_PASS], avail[LONG_PASS] = 0, 0
 
@@ -267,23 +268,23 @@ class FeatureEncoder:
         MIDDLE_X, PENALTY_X, END_X = 0.2, 0.64, 1.0
         PENALTY_Y, END_Y = 0.27, 0.42
         if (-END_X <= ball_x and ball_x < -PENALTY_X) and (
-                -PENALTY_Y < ball_y and ball_y < PENALTY_Y
+            -PENALTY_Y < ball_y and ball_y < PENALTY_Y
         ):
             return [1.0, 0, 0, 0, 0, 0]
         elif (-END_X <= ball_x and ball_x < -MIDDLE_X) and (
-                -END_Y < ball_y and ball_y < END_Y
+            -END_Y < ball_y and ball_y < END_Y
         ):
             return [0, 1.0, 0, 0, 0, 0]
         elif (-MIDDLE_X <= ball_x and ball_x <= MIDDLE_X) and (
-                -END_Y < ball_y and ball_y < END_Y
+            -END_Y < ball_y and ball_y < END_Y
         ):
             return [0, 0, 1.0, 0, 0, 0]
         elif (PENALTY_X < ball_x and ball_x <= END_X) and (
-                -PENALTY_Y < ball_y and ball_y < PENALTY_Y
+            -PENALTY_Y < ball_y and ball_y < PENALTY_Y
         ):
             return [0, 0, 0, 1.0, 0, 0]
         elif (MIDDLE_X < ball_x and ball_x <= END_X) and (
-                -END_Y < ball_y and ball_y < END_Y
+            -END_Y < ball_y and ball_y < END_Y
         ):
             return [0, 0, 0, 0, 1.0, 0]
         else:
@@ -319,14 +320,25 @@ class FeatureEncoder:
         avail = np.zeros(action_n)
         avail[13:] = 1
 
-        directions = [LEFT, TOP_LEFT, TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT, BOTTOM_LEFT, BOTTOM]
+        directions = [
+            LEFT,
+            TOP_LEFT,
+            TOP,
+            TOP_RIGHT,
+            RIGHT,
+            BOTTOM_RIGHT,
+            BOTTOM_LEFT,
+            BOTTOM,
+        ]
         if len(his_actions) == 0:
             self.set_on(avail, directions)
         else:
             last_action = his_actions[-1]
             # directions
             if last_action in directions:
-                self.set_on(avail, self._get_smooth_directions(his_actions) + [RELEASE_MOVE])
+                self.set_on(
+                    avail, self._get_smooth_directions(his_actions) + [RELEASE_MOVE]
+                )
             elif last_action in [LONG_PASS, SHOT, HIGH_PASS, SHORT_PASS, SLIDE]:
                 self.set_on(avail, directions + [last_action])
             # we regard release move as an end of a series of commands

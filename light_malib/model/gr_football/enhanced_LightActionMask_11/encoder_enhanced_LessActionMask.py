@@ -21,17 +21,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-'''
+"""
 Our Feature Encoder code is adapated from wekick and liveinparis in the kaggle football competition.
 
 basic_enhanced_11 outputs 217+107-dimension features and has less action masking,
 used as an extended FE for 11v11 full-game scenarios
-'''
+"""
 
 from typing import OrderedDict
 import numpy as np
 from light_malib.utils.logger import Logger
 from gym.spaces import Box
+
 
 class FeatureEncoder:
     def __init__(self):
@@ -52,7 +53,7 @@ class FeatureEncoder:
             "offside": 10,
             "card": 20,
             "sticky_action": 10,
-            "ball_distance": 9
+            "ball_distance": 9,
         }
         return dims
 
@@ -183,47 +184,42 @@ class FeatureEncoder:
         right_closest_idx = np.argmin(right_team_distance)
         right_closest_state = right_team_state[right_closest_idx]
 
-        steps_left = obs['steps_left']  # steps left till end
+        steps_left = obs["steps_left"]  # steps left till end
         half_steps_left = steps_left
         if half_steps_left > 1500:
             half_steps_left -= 1501  # steps left till halfend
         half_steps_left = 1.0 * min(half_steps_left, 300.0)  # clip
         half_steps_left /= 300.0
 
-        score_ratio = (obs['score'][0] - obs['score'][1])
+        score_ratio = obs["score"][0] - obs["score"][1]
         score_ratio /= 5.0
         score_ratio = min(score_ratio, 1.0)
         score_ratio = max(-1.0, score_ratio)
 
         game_mode = np.zeros(7, dtype=np.float32)
-        game_mode[obs['game_mode']] = 1
+        game_mode[obs["game_mode"]] = 1
         match_state = np.concatenate(
             (
                 np.array([1.0 * steps_left / 3001, half_steps_left, score_ratio]),
-                game_mode
+                game_mode,
             )
         )
 
         # offside
         l_o, r_o = state.get_offside(obs)
-        offside = np.concatenate(
-            (
-                l_o,
-                r_o
-            )
-        )
+        offside = np.concatenate((l_o, r_o))
         # card
         card = np.concatenate(
             (
-                obs['left_team_yellow_card'],
-                obs['left_team_active'],
-                obs['right_team_yellow_card'],
-                obs['right_team_active']
+                obs["left_team_yellow_card"],
+                obs["left_team_active"],
+                obs["right_team_yellow_card"],
+                obs["right_team_active"],
             )
         )
 
         # sticky_action
-        sticky_action = obs['sticky_actions']
+        sticky_action = obs["sticky_actions"]
 
         # ball_distance
         left_team_distance = np.linalg.norm(
@@ -232,26 +228,23 @@ class FeatureEncoder:
         right_team_distance = np.linalg.norm(
             obs_right_team - obs["ball"][:2], axis=1, keepdims=False
         )
-        ball_distance = np.concatenate(
-            (
-                left_team_distance,
-                right_team_distance
-            )
+        ball_distance = np.concatenate((left_team_distance, right_team_distance))
+        state_dict = OrderedDict(
+            {
+                "avail": avail,
+                "ball": ball_state,
+                "left_closest": left_closest_state,
+                "left_team": left_team_state,
+                "player": player_state,
+                "right_closest": right_closest_state,
+                "right_team": right_team_state,
+                "match_state": match_state,
+                "offside": offside,
+                "card": card,
+                "sticky_action": sticky_action,
+                "ball_distance": ball_distance,
+            }
         )
-        state_dict = OrderedDict({
-            "avail": avail,
-            "ball": ball_state,
-            "left_closest": left_closest_state,
-            "left_team": left_team_state,
-            "player": player_state,
-            "right_closest": right_closest_state,
-            "right_team": right_team_state,
-            "match_state": match_state,
-            "offside": offside,
-            "card": card,
-            "sticky_action": sticky_action,
-            "ball_distance": ball_distance
-        })
 
         feats = np.hstack(
             [np.array(state_dict[k], dtype=np.float32).flatten() for k in (state_dict)]
@@ -285,9 +278,9 @@ class FeatureEncoder:
                 avail[DRIBBLE],
             ) = (0, 0, 0, 0, 0)
         elif (
-                obs["ball_owned_team"] == -1
-                and ball_distance > 0.03
-                and obs["game_mode"] == 0
+            obs["ball_owned_team"] == -1
+            and ball_distance > 0.03
+            and obs["game_mode"] == 0
         ):  # Ground ball  and far from me
             (
                 avail[LONG_PASS],
@@ -317,7 +310,7 @@ class FeatureEncoder:
         if ball_x < 0.64 or ball_y < -0.27 or 0.27 < ball_y:
             avail[SHOT] = 0
         elif (0.64 <= ball_x and ball_x <= 1.0) and (
-                -0.27 <= ball_y and ball_y <= 0.27
+            -0.27 <= ball_y and ball_y <= 0.27
         ):
             avail[HIGH_PASS], avail[LONG_PASS] = 0, 0
 
@@ -340,7 +333,7 @@ class FeatureEncoder:
 
     def _get_avail_new(self, obs, ball_distance, action_n):
         # avail = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        assert (action_n == 19 or action_n == 20)  # we dont support full action set
+        assert action_n == 19 or action_n == 20  # we dont support full action set
         avail = [1] * action_n
 
         (
@@ -390,23 +383,23 @@ class FeatureEncoder:
         MIDDLE_X, PENALTY_X, END_X = 0.2, 0.64, 1.0
         PENALTY_Y, END_Y = 0.27, 0.42
         if (-END_X <= ball_x and ball_x < -PENALTY_X) and (
-                -PENALTY_Y < ball_y and ball_y < PENALTY_Y
+            -PENALTY_Y < ball_y and ball_y < PENALTY_Y
         ):
             return [1.0, 0, 0, 0, 0, 0]
         elif (-END_X <= ball_x and ball_x < -MIDDLE_X) and (
-                -END_Y < ball_y and ball_y < END_Y
+            -END_Y < ball_y and ball_y < END_Y
         ):
             return [0, 1.0, 0, 0, 0, 0]
         elif (-MIDDLE_X <= ball_x and ball_x <= MIDDLE_X) and (
-                -END_Y < ball_y and ball_y < END_Y
+            -END_Y < ball_y and ball_y < END_Y
         ):
             return [0, 0, 1.0, 0, 0, 0]
         elif (PENALTY_X < ball_x and ball_x <= END_X) and (
-                -PENALTY_Y < ball_y and ball_y < PENALTY_Y
+            -PENALTY_Y < ball_y and ball_y < PENALTY_Y
         ):
             return [0, 0, 0, 1.0, 0, 0]
         elif (MIDDLE_X < ball_x and ball_x <= END_X) and (
-                -END_Y < ball_y and ball_y < END_Y
+            -END_Y < ball_y and ball_y < END_Y
         ):
             return [0, 0, 0, 0, 1.0, 0]
         else:
@@ -442,14 +435,25 @@ class FeatureEncoder:
         avail = np.zeros(action_n)
         avail[13:] = 1
 
-        directions = [LEFT, TOP_LEFT, TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT, BOTTOM_LEFT, BOTTOM]
+        directions = [
+            LEFT,
+            TOP_LEFT,
+            TOP,
+            TOP_RIGHT,
+            RIGHT,
+            BOTTOM_RIGHT,
+            BOTTOM_LEFT,
+            BOTTOM,
+        ]
         if len(his_actions) == 0:
             self.set_on(avail, directions)
         else:
             last_action = his_actions[-1]
             # directions
             if last_action in directions:
-                self.set_on(avail, self._get_smooth_directions(his_actions) + [RELEASE_MOVE])
+                self.set_on(
+                    avail, self._get_smooth_directions(his_actions) + [RELEASE_MOVE]
+                )
             elif last_action in [LONG_PASS, SHOT, HIGH_PASS, SHORT_PASS, SLIDE]:
                 self.set_on(avail, directions + [last_action])
             # we regard release move as an end of a series of commands
