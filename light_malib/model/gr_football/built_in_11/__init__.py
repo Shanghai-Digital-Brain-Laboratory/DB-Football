@@ -20,6 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+"""
+Built-in AI in a form of actor-critic models
+"""
+
 import torch.nn as nn
 import torch
 from light_malib.envs.gr_football.tools import action_set as act

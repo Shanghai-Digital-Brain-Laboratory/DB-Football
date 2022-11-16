@@ -20,6 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+'''
+Our Feature Encoder code is adapated from wekick and liveinparis in the kaggle football competition.
+
+basic FE outputs 133-dimension features, used for 5v5 full-game scenarios
+'''
+
 import numpy as np
 from light_malib.utils.logger import Logger
 from gym.spaces import Box

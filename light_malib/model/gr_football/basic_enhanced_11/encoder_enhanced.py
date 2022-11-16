@@ -23,6 +23,8 @@
 
 '''
 Our Feature Encoder code is adapated from wekick and liveinparis in the kaggle football competition.
+
+basic_enhanced_11 outputs 217+107-dimension features, used as an extended FE for 11v11 full-game scenarios
 '''
 
 from typing import OrderedDict
@@ -62,7 +64,7 @@ class FeatureEncoder:
 
     @property
     def observation_space(self):
-        return Box(low=-1000, high=1000, shape=[217 + 95])
+        return Box(low=-1000, high=1000, shape=[217 + 107])
 
     def encode_each(self, state):
         obs = state.obs

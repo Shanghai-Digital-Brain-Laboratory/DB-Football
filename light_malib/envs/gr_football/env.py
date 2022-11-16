@@ -146,7 +146,7 @@ class GRFootballEnv(BaseEnv):
         encoded_observations,action_masks=self.encode()
         global_timer.time("feature_start","feature_end","feature")
         
-        if info["score_reward"]:
+        if info["score_reward"]:        #if score, done  to segment the long-horizon traj
             done=True
            
         dones={

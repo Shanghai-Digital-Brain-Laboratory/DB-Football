@@ -21,7 +21,6 @@
 # SOFTWARE.
 
 import numpy as np
-import torch
 
 class Rewarder:
     def __init__(self, reward_config) -> None:
@@ -165,7 +164,6 @@ def role_based_r(pre_obs, obs):
     if current_score_after > current_score_pre:
         r += team_goal_weight[current_role]
 
-    r *= 1.5
     return r
 
 

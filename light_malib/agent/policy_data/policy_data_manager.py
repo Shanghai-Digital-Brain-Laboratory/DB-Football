@@ -27,7 +27,7 @@ from ..agent import Agents
 from light_malib.utils.logger import Logger
 import numpy as np
 import importlib
-from .custom_update_func.gr_football import update_func
+# from .custom_update_func.gr_football import update_func
 
 class PolicyDataManager:
     def __init__(self,cfg,agent_manager:AgentManager,max_num_policies=100):

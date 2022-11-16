@@ -29,8 +29,10 @@ class State:
         self.action_list = []
         self.last_ball_owned_team = None
         self.last_ball_owned_player = None
-        self.last_loffside = np.zeros(11, np.float32)
-        self.last_roffside = np.zeros(11, np.float32)
+
+        self.num_player = 11        #11 for 11v11 scenarios, 5 for 5v5
+        self.last_loffside = np.zeros(self.num_player, np.float32)
+        self.last_roffside = np.zeros(self.num_player, np.float32)
 
     def update_obs(self, obs):
         self.obs_list.append(obs)
@@ -123,37 +125,41 @@ class State:
         return 0
 
     def get_offside(self, obs):
+        """
+        check offside status, borrow from wekick implementation
+        """
         ball = np.array(obs['ball'][:2])
         ally = np.array(obs['left_team'])
         enemy = np.array(obs['right_team'])
 
-        # 任意球、角球等没有越位，只有正常比赛有越位
+        #  任意球、角球等没有越位，只有正常比赛有越位 (free kick and corner has no offside whereas full-game scenario does)
         if obs['game_mode'] != 0:
-            self.last_loffside = np.zeros(11, np.float32)
-            self.last_roffside = np.zeros(11, np.float32)
-            return np.zeros(11, np.float32), np.zeros(11, np.float32)
+            self.last_loffside = np.zeros(self.num_player, np.float32)
+            self.last_roffside = np.zeros(self.num_player, np.float32)
+            return np.zeros(self.num_player, np.float32), np.zeros(self.num_player, np.float32)
 
         need_recalc = False
         effective_ownball_team = -1
         effective_ownball_player = -1
 
-        # 当一方控球时才判断是否越位
+        #  当一方控球时才判断是否越位 (check offside if one side of the team owns the ball )
         if obs['ball_owned_team'] > -1:
             effective_ownball_team = obs['ball_owned_team']
             effective_ownball_player = obs['ball_owned_player']
             need_recalc = True
         else:
-            # 没有控球但是离球很近也要判断越位
-            # 有这种情况比如一脚传球时obs['ball_owned_team'] 时不会显示的
+            # 没有控球但是离球很近也要判断越位 (check offside when no control of the ball but stand closed to the ball)
+            # 有这种情况比如一脚传球时obs['ball_owned_team'] 时不会显示的 (case exists when pass the ball
+            #                                                       and ['ball_owned_team'] term does not display)
             ally_dist = np.linalg.norm(ball - ally, axis=-1)
             enemy_dist = np.linalg.norm(ball - enemy, axis=-1)
-            # 我方控球
+            # 我方控球      (we own the ball)
             if np.min(ally_dist) < np.min(enemy_dist):
                 if np.min(ally_dist) < 0.017:
                     need_recalc = True
                     effective_ownball_team = 0
                     effective_ownball_player = np.argmin(ally_dist)
-            # 对方控球
+            # 对方控球      (opponent owns the ball)
             elif np.min(enemy_dist) < np.min(ally_dist):
                 if np.min(enemy_dist) < 0.017:
                     need_recalc = True
@@ -163,22 +169,22 @@ class State:
         if not need_recalc:
             return self.last_loffside, self.last_roffside
 
-        left_offside = np.zeros(11, np.float32)
-        right_offside = np.zeros(11, np.float32)
+        left_offside = np.zeros(self.num_player, np.float32)
+        right_offside = np.zeros(self.num_player, np.float32)
 
         if effective_ownball_team == 0:
-            # 所有对方球员的x坐标加入排序
-            # 取倒数第二名防守球员作为越位线
-            right_xs = [obs['right_team'][k][0] for k in range(0, 11)]
+            # 所有对方球员的x坐标加入排序        (all opponent player's x value added for ranking)
+            # 取倒数第二名防守球员作为越位线       (pick the second last defender as the offside line)
+            right_xs = [obs['right_team'][k][0] for k in range(0, self.num_player)]
             right_xs = np.array(right_xs)
             right_xs.sort()
 
-            # 将倒数第二名防守球员的位置和球比较，更深的成为越位线
+            # 将倒数第二名防守球员的位置和球比较，更深的成为越位线        (compare second last defender position with ball position)
             offside_line = max(right_xs[-2], ball[0])
 
-            # 己方守门员不参与进攻，不为其计算越位标志，直接用0的初始化
-            # 己方半场不计算越位
-            for k in range(1, 11):
+            # 己方守门员不参与进攻，不为其计算越位标志，直接用0的初始化     (our GK plays no offense, skip it and initialise with 0)
+            # 己方半场不计算越位             (no checking offside at our half)
+            for k in range(1, self.num_player):
                 if obs['left_team'][k][0] > offside_line and k != effective_ownball_player \
                         and obs['left_team'][k][0] > 0.0:
                     left_offside[k] = 1.0
@@ -187,11 +193,11 @@ class State:
             left_xs = np.array(left_xs)
             left_xs.sort()
 
-            # 左右半场左边相反
+            # 左右半场左边相反          (left and right half are opposite)
             offside_line = min(left_xs[1], ball[0])
 
-            # 左右半场左边相反
-            for k in range(1, 11):
+            # 左右半场左边相反          (left and right half are opposite)
+            for k in range(1, self.num_player):
                 if obs['right_team'][k][0] < offside_line and k != effective_ownball_player \
                         and obs['right_team'][k][0] < 0.0:
                     right_offside[k] = 1.0

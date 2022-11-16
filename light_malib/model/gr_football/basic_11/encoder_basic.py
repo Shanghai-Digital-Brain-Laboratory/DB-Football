@@ -23,6 +23,8 @@
 
 '''
 Our Feature Encoder code is adapated from wekick and liveinparis in the kaggle football competition.
+
+basic_11 outputs 217-dimension features, used as a default FE for 11v11 full-game scenarios
 '''
 
 import numpy as np

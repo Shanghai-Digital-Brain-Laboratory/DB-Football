@@ -22,7 +22,7 @@
 # SOFTWARE.
 
 '''
-Our Feature Encoder code is adapated from wekick and liveinparis in the kaggle football competition.
+The official simple115_v2 feature observation, added with action mask to align with others.
 '''
 
 import numpy as np

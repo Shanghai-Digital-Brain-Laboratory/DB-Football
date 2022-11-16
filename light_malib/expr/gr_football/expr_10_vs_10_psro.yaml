@@ -10,7 +10,7 @@ distributed:
   auto_copy:
   nodes:
     master:
-      ip: 'auto'
+      ip: '10.103.0.119'
     workers:      
       - ip:
 
@@ -23,13 +23,13 @@ framework:
     type: "win_rate_stopper"
     kwargs:
       min_win_rate: 0.9
-      max_steps: 1
+      max_steps: 100
 agent_manager:
   num_agents: 2
   share_policies: True
 
 evaluation_manager:
-  num_eval_rollouts: 20
+  num_eval_rollouts: 3
 
 policy_data_manager:
   update_func: "gr_football" 
@@ -86,9 +86,9 @@ rollout_manager:
     distributed:
       resources:
         num_cpus: 1
-    rollout_length: 300
-    eval_rollout_length: 300
-    sample_length: 100
+    rollout_length: 3001
+    eval_rollout_length: 3001
+    sample_length: 1000
     padding_length: # of not use in gr_football
     rollout_func_name: "rollout_func"
     envs:
@@ -224,7 +224,7 @@ populations:
 
       # set hyper parameter
       custom_config:
-        gamma: 0.9995
+        gamma: 1
         use_cuda: False  # enable cuda or not
         use_q_head: False
         ppo_epoch: 5
@@ -267,11 +267,11 @@ populations:
           initial_policies:
             - policy_id: built_in
               policy_dir: light_malib/trained_models/gr_football/11_vs_11/built_in
-            - policy_id: league_main
-              policy_dir: light_malib/trained_models/gr_football/11_vs_11/league_main
-            - policy_id: oppo1
-              policy_dir: light_malib/trained_models/gr_football/11_vs_11/oppo1
-            - policy_id: passer_enhanced
-              policy_dir: light_malib/trained_models/gr_football/11_vs_11/passer_enhanced
-            - policy_id: winner_psro
-              policy_dir: light_malib/trained_models/gr_football/11_vs_11/winner_psro
+#            - policy_id: current_best
+#              policy_dir: light_malib/trained_models/gr_football/11_vs_11/current_best
+#            - policy_id: defensive_passer
+#              policy_dir: light_malib/trained_models/gr_football/11_vs_11/defensive_passer
+#            - policy_id: offensive_passer
+#              policy_dir: light_malib/trained_models/gr_football/11_vs_11/offensive_passer
+#            - policy_id: group_pressure
+#              policy_dir: light_malib/trained_models/gr_football/11_vs_11/group_pressure

@@ -33,7 +33,7 @@ import argparse
 
 parser=argparse.ArgumentParser(description='play google research football competition')
 parser.add_argument("--config",type=str,default="light_malib/expr/gr_football/expr_10_vs_10_psro.yaml")
-parser.add_argument("--model_0",type=str,default="light_malib/trained_models/gr_football/11_vs_11/league_main")
+parser.add_argument("--model_0",type=str,default="light_malib/trained_models/gr_football/11_vs_11/offensive_passer")
 parser.add_argument("--model_1",type=str,default="light_malib/trained_models/gr_football/11_vs_11/built_in")
 parser.add_argument("--render",default=False,action="store_true")
 parser.add_argument("--total_run",default=1,type=int)

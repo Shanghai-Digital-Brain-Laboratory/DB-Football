@@ -23,6 +23,9 @@
 
 '''
 Our Feature Encoder code is adapated from wekick and liveinparis in the kaggle football competition.
+
+basic_enhanced_11 outputs 217+107-dimension features and has less action masking,
+used as an extended FE for 11v11 full-game scenarios
 '''
 
 from typing import OrderedDict

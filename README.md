@@ -22,7 +22,7 @@ Our codes are based on Light-MALib, which is a simplified version of [MALib](htt
 ## Install
 You can use any tool to manage your python environment. Here, we use conda as an example.
 1. install conda/minconda.
-2. `conda create -n light-malib python==3.8` to create a new conda env.
+2. `conda create -n light-malib python==3.9` to create a new conda env.
 3. activate the env by `conda activate light-malib` when you want to use it or you can add this line to your `.bashrc` file to enable it everytime you login into the bash.
 
 ### Install Light-MALib, PyTorch and Google Research Football
@@ -50,6 +50,11 @@ Currently, we provide the following tools for better study in the field of Footb
 2. [Google Football Game Debugger](light_malib/envs/gr_football/debugger/): A single-step graphical debugger illustrating both 3D and 2D frames with detailed frame data, such as the movements of players and the ball.
 
 ![game debugger](https://user-images.githubusercontent.com/25078430/201862116-067d23cf-a1d9-4628-bf64-9c8b0b2986d5.png)
+
+## Benchmark Policy
+At this stage, we release some of our trained model for use as initializations or opponents.
+
+![policy_radar](imgs/policy_radar.svg)
 
 ## Contact
 If you have any questions about this repo, feel free to leave an issue. You can also contact current maintainers, [YanSong97](https://github.com/YanSong97) and [DiligentPanda](https://github.com/DiligentPanda), by email.
