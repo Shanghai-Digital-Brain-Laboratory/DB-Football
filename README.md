@@ -19,8 +19,12 @@ Our codes are based on Light-MALib, which is a simplified version of [MALib](htt
 ## Contents
 1. Install
 2. Run Experiments
-3. Contact
-4. Join Us
+3. Benchmark 11_vs_11 1.0 hard bot
+4. GRF toolkits
+5. Benchmark policy
+6. Documentation
+7. Contact
+8. Join Us
 
 ## Install
 You can use any tool to manage your python environment. Here, we use conda as an example.
@@ -44,6 +48,12 @@ You can use any tool to manage your python environment. Here, we use conda as an
 2. `python light_malib/main_pbt.py --config <config_file_path>` to run a training experiment. An example is given by `train_light_malib.sh`.
 3. `python light_malib/scripts/play_gr_football.py` to run a competition between two models. 
 
+## Benchmark 11_vs_11 1.0 hard bot
+
+<img src="imgs/compare_resource.svg" width="400px">
+
+Beats 1.0 hard bot under multi-agent 11v11 full-game scenraios within 10 hours using IPPO, taking advantage of glitches in built-in logics.
+
 ## Google Reseach Football Toolkit
 Currently, we provide the following tools for better study in the field of Football AI.
 1. [Google Football Game Graph](light_malib/envs/gr_football/game_graph/): A data structure representing a game as a tree structure with branching indicating important events like goals or intercepts.
@@ -58,6 +68,9 @@ Currently, we provide the following tools for better study in the field of Footb
 At this stage, we release some of our trained model for use as initializations or opponents.
 
 <img src='imgs/policy_radar.svg' width='300px'>
+
+## Documentation
+Under construction, stay tuned :)
 
 ## Contact
 If you have any questions about this repo, feel free to leave an issue. You can also contact current maintainers, [YanSong97](https://github.com/YanSong97) and [DiligentPanda](https://github.com/DiligentPanda), by email.
