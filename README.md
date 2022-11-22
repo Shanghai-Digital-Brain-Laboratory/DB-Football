@@ -65,7 +65,7 @@ Currently, we provide the following tools for better study in the field of Footb
 <img src='imgs/grf_debugger.svg' width='600px'>
 
 ## Benchmark Policy
-At this stage, we release some of our trained model for use as initializations or opponents.
+At this stage, we release some of our trained model for use as initializations or opponents. Model files are available on [Google Drive](https://drive.google.com/drive/folders/1OxdfsYUFRx-0q3VSbIMBoRsbkss_bHnK?usp=sharing) and [Baidu Wangpan](https://pan.baidu.com/s/1nCaz0QZb15_f1XGwVF-Uyw?pwd=nit1).
 
 <img src='imgs/policy_radar.svg' width='300px'>
 
