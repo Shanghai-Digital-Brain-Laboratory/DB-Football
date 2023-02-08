@@ -22,9 +22,10 @@ Our codes are based on Light-MALib, which is a simplified version of [MALib](htt
 3. Benchmark 11_vs_11 1.0 hard bot
 4. GRF toolkits
 5. Benchmark policy
-6. Documentation
-7. Contact
-8. Join Us
+6. Tensorboard tags
+7. Documentation
+8. Contact
+9. Join Us
 
 ## Install
 You can use any tool to manage your python environment. Here, we use conda as an example.
@@ -68,6 +69,66 @@ Currently, we provide the following tools for better study in the field of Footb
 At this stage, we release some of our trained model for use as initializations or opponents. Model files are available on [Google Drive](https://drive.google.com/drive/folders/1OxdfsYUFRx-0q3VSbIMBoRsbkss_bHnK?usp=sharing) and [Baidu Wangpan](https://pan.baidu.com/s/1nCaz0QZb15_f1XGwVF-Uyw?pwd=nit1).
 
 <img src='imgs/policy_radar.svg' width='300px'>
+
+## Tensorboard tags explained
+
+DataServer:
+1. `alive_usage_mean/std`: mean/std usage of data samples in buffer;
+2. `mean_wait_time`: total reading waiting time divided reading counts;
+3. `sample_per_minute_read`: number of samples read per minute;
+4. `sample_per_minute_write`: number of samples written per minute;
+
+PSRO: 
+1. `Elo`: Elo-rate during PBT; 
+2. `Payoff Table`: plot of payoff table;
+
+Rollout: 
+1. `bad_pass,bad_shot,get_intercepted,get_tackled,good_pass,good_shot,interception,num_pass,num_shot,tackle, total_move,total_pass,total_possession,total_shot`: detailed football statistics;
+2. `goal_diff`: goal difference of the training agent (positive indicates more goals); 
+3. `lose/win`: expected lose/win rate during rollout;
+4. `score`: expected scores durig rollout, score for a single game has value 0 if lose, 1 if win and 0.5 if draw;
+
+
+RolloutTimer
+1. `batch`: timer for getting a rollout batch;
+2. `env_core_step`: timer for simulator stepping time;
+3. `env_step`: total timer for an enviroment step;
+4. `feature`: timer for feature encoding;
+5. `inference`: timer for policy inference;
+6. `policy_update`: timer for pulling policies from remote;
+7. `reward`: timer for reward calculation;
+8. `rollout`: total timer for one rollout;
+9. `sample`: timer for policy sampling;
+10. `stats`: timer for collecting statistics;
+
+Training:
+1. `Old_V_max/min/mean/std`: value estimate at rollout;
+2. `V_max/min/mean/std`: current value estimate;
+3. `advantage_max/min/mean/std`: Advantage value;
+4. `approx_kl`: KL divergence between old and new action distributions;
+5. `clip_ratio`: proportion of clipped entries;
+6. `delta_max/min/mean/std`: TD error;
+7. `entropy`: entropy value;
+8. `imp_weights_max/min/mean/std`: importance weights;
+9. `kl_diff`: variation of `approx_kl`;
+10. `lower_clip_ratio`: proportion of up-clipping entries;
+11. `upper_clip_ratio`: proportion of down-clipping entries;
+12. `policy_loss`: policy loss;
+14. `training_epoch`: number of training epoch at each iteration;
+15. `value_loss`: value loss
+
+TrainingTimer:
+1. `compute_return`: timer for GAE compute;
+2. `data_copy`: timer for data copy when processing data;
+3. `data_generator`: timer for generating data;
+4. `loss`: total timer for loss computing;
+5. `move_to_gpu`: timer for sending data to GPU;
+6. `optimize`: total timer for an optimization step; 
+7. `push_policy`: timer for pushing trained policies to the remote;
+8. `train_step`: total timer for a training step; 
+9. `trainer_data`: timer for get data from `local_queue`;
+10. `trainer_optimize`: timer for a optimization step in the trainer;
+
 
 ## Documentation
 Under construction, stay tuned :)
