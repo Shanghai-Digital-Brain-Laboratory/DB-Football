@@ -1,8 +1,8 @@
 expr_group: gr_football
 expr_name: 10_vs_10_psro
-log_dir: ./logs             #log directory
+log_dir: ./logs             # log directory
 seed: 0
-eval_only: False            #True if only want evaluation
+eval_only: False            # True if only want evaluation
 
 distributed:
   use: False
@@ -10,26 +10,26 @@ distributed:
   auto_copy:
   nodes:
     master:
-      ip: 'auto'            # worker ip
+      ip: "auto"
     workers:      
       - ip:
 
 framework:
-  name: "psro"                #framework name
-  max_generations: 50         #psro rounds
-  meta_solver: "nash"         #'nash', 'uniform', 'pfsp'
+  name: "psro"                # framework name
+  max_generations: 50         # psro rounds
+  meta_solver: "nash"         # 'nash', 'uniform', 'pfsp'
   sync_training: False
   stopper:
     type: "win_rate_stopper"
     kwargs:
       min_win_rate: 0.9
-      max_steps: 100          #iteration at each psro round
+      max_steps: 1000          # iteration at each psro round
 agent_manager:
   num_agents: 2
   share_policies: True
 
 evaluation_manager:
-  num_eval_rollouts: 3
+  num_eval_rollouts: 50
 
 policy_data_manager:
   update_func: "gr_football" 
@@ -66,12 +66,12 @@ rollout_manager:
       num_cpus: 1
       resources:
         - ["node:${distributed.nodes.master.ip}",0.01]
-  num_workers: 5                                                      #numbers of parallel rollout worker, one env per worker by default
+  num_workers: 100     # numbers of parallel rollout worker, one env per worker by default
   seed: 12345
-  saving_interval: 100 # the sequence of dump model's weight
+  saving_interval: 100 # the frequency of dumping model's weight
   batch_size: ${rollout_manager.num_workers}
   eval_batch_size: 100
-  eval_freq: 10 # epochs
+  eval_freq: 100 # epochs
   min_samples: ${training_manager.batch_size}
   rollout_metric_cfgs:
     reward:
@@ -86,9 +86,9 @@ rollout_manager:
     distributed:
       resources:
         num_cpus: 1
-    rollout_length: 3001                                    #episode length
+    rollout_length: 3001                                    # episode length
     eval_rollout_length: 3001
-    sample_length: 1000                                     #every $sample_length traj will be push to buffer during rollout
+    sample_length: 1000                                     # every $sample_length traj will be push to buffer during rollout
     padding_length: # of not use in gr_football
     rollout_func_name: "rollout_func"
     envs:
@@ -143,13 +143,13 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 5 # how many data sample from DatasetServer per time.
+  batch_size: 256 # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
       resources:
         num_cpus: 1
-  num_trainers: 1                         #equals to number of GPUs by default
+  num_trainers: 8 # equals to number of GPUs by default
   # control the frequency of remote parameter update
   update_interval: 1
   gpu_preload: False
@@ -195,7 +195,7 @@ populations:
     algorithm:
       name: "MAPPO"
       model_config:
-        model: "gr_football.basic_11"       #model type and feature encoders
+        model: "gr_football.basic_11"       # model type
         initialization:
           use_orthogonal: True
           gain: 1.
@@ -224,7 +224,7 @@ populations:
 
       # set hyper parameter
       custom_config:
-        gamma: 1
+        gamma: 1.0
         use_cuda: False  # enable cuda or not
         use_q_head: False
         ppo_epoch: 5
@@ -257,15 +257,15 @@ populations:
           new_policy_ctr_start: -1
           init_cfg:
             - condition: "==0" # condition if True in order
-              strategy: random # now support pretrained, inherit_last, random
+              strategy: random # now support pretrained, inherit_last, random, inherit_last_best
               policy_id: 
               policy_dir:
             - condition: "default" # default case.
-              strategy: inherit_last_best # now support pretrained, inherit_last, random
+              strategy: inherit_last_best # now support pretrained, inherit_last, random, inherit_last_best
               policy_id:
               policy_dir:
           initial_policies:                         #initial population
-            - policy_id: built_in
+            - policy_id: built_in_11
               policy_dir: light_malib/trained_models/gr_football/11_vs_11/built_in
 #            - policy_id: current_best
 #              policy_dir: light_malib/trained_models/gr_football/11_vs_11/current_best

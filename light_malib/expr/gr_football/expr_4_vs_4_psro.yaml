@@ -1,8 +1,8 @@
 expr_group: gr_football
-expr_name: 10_vs_10_seq_league
-log_dir: ./logs             # log directory
+expr_name: 5_vs_5_psro
+log_dir: ./logs             #log directory
 seed: 0
-eval_only: False            # True if only want evaluation
+eval_only: False            #True if only want evaluation
 
 distributed:
   use: False
@@ -15,16 +15,15 @@ distributed:
       - ip:
 
 framework:
-  name: "seq_league"          # framework name
-  start_phase: "main_agent"   # "main_agent","exploiter"
-  max_generations: 50
-  meta_solver: "nash"         # 'nash', 'uniform', 'pfsp'
+  name: "psro"                #framework name
+  max_generations: 50         #psro rounds
+  meta_solver: "nash"         #'nash', 'uniform', 'pfsp'
   sync_training: False
   stopper:
     type: "win_rate_stopper"
     kwargs:
       min_win_rate: 0.9
-      max_steps: 1000
+      max_steps: 1000          #iteration at each psro round
 agent_manager:
   num_agents: 2
   share_policies: True
@@ -87,18 +86,18 @@ rollout_manager:
     distributed:
       resources:
         num_cpus: 1
-    rollout_length: 3001
+    rollout_length: 3001                                    #episode length
     eval_rollout_length: 3001
-    sample_length: 1000
+    sample_length: 1000                                     #every $sample_length traj will be push to buffer during rollout
     padding_length: # of not use in gr_football
     rollout_func_name: "rollout_func"
     envs:
       - cls: "gr_football"
         id_prefix: "gr_footbal"
         scenario_config:
-          env_name: "10_vs_10_kaggle"
-          number_of_left_players_agent_controls: 10
-          number_of_right_players_agent_controls: 10
+          env_name: "5_vs_5"
+          number_of_left_players_agent_controls: 4
+          number_of_right_players_agent_controls: 4
           representation: "raw"
           rewards: "scoring, checkpoints"
           stacked: False
@@ -144,7 +143,7 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 512 # how many data sample from DatasetServer per time.
+  batch_size: 256 # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
@@ -192,11 +191,11 @@ policy_server:
         - ["node:${distributed.nodes.master.ip}",0.01]
 
 populations:
-  - population_id: main_agent # population_id
+  - population_id: default # population_id
     algorithm:
       name: "MAPPO"
       model_config:
-        model: "gr_football.basic_11"       # model type
+        model: "gr_football.basic_5"       # model type
         initialization:
           use_orthogonal: True
           gain: 1.
@@ -259,84 +258,12 @@ populations:
           init_cfg:
             - condition: "==0" # condition if True in order
               strategy: random # now support pretrained, inherit_last, random
-              policy_id:
+              policy_id: 
               policy_dir:
             - condition: "default" # default case.
               strategy: inherit_last_best # now support pretrained, inherit_last, random
               policy_id:
               policy_dir:
-          initial_policies:
-            - policy_id: built_in
-              policy_dir: light_malib/trained_models/gr_football/11_vs_11/built_in
-
-  - population_id: exploiter # population_id
-    algorithm:
-      name: "MAPPO"
-      model_config:
-        model: "gr_football.basic_11"
-        initialization:
-          use_orthogonal: True
-          gain: 1.
-        actor:
-          network: mlp
-          layers:
-            - units: 256
-              activation: ReLU
-            - units: 128
-              activation: ReLU
-            - units: 64
-              activation: ReLU
-          output:
-            activation: False
-        critic:
-          network: mlp
-          layers:
-            - units: 256
-              activation: ReLU
-            - units: 128
-              activation: ReLU
-            - units: 64
-              activation: ReLU
-          output:
-            activation: False
-
-      # set hyper parameter
-      custom_config:
-        gamma: 0.9995
-        use_cuda: False  # enable cuda or not
-        use_q_head: False
-        ppo_epoch: 5
-        num_mini_batch: 1  # the number of mini-batches
-        
-        return_mode: new_gae
-        gae:
-          gae_lambda: 0.95
-        vtrace:
-          clip_rho_threshold: 1.0
-          clip_pg_rho_threshold: 100.0
-
-        use_rnn: False
-        # this is not used, instead it is fixed to last hidden in actor/critic
-        rnn_layer_num: 1
-        rnn_data_chunk_length: 16
-
-        use_feature_normalization: True
-        use_popart: True
-        popart_beta: 0.99999
-
-        entropy_coef: 0.00
-        clip_param: 0.2
-        # kl_early_stop: 0.01
-
-        use_modified_mappo: False
-
-      policy_init_cfg:
-        agent_0: # agent_id
-          init_cfg:
-            - condition: "default" # default case.
-              strategy: random # now support pretrained, inherit_last, random, inherit_last_best
-              policy_id:
-              policy_dir:
-          initial_policies:
-            # - policy_id: built_in
-            #   policy_dir: light_malib/trained_models/gr_football/11_vs_11/built_in
+          initial_policies:                         #initial population
+            - policy_id: built_in_5
+              policy_dir: light_malib/trained_models/gr_football/5_vs_5/built_in
