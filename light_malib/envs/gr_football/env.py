@@ -175,7 +175,6 @@ class GRFootballEnv(BaseEnv):
             if g.team == 0 and g.score == 1:  # if our goals from ower team
                 shot_player = g.player
                 shot_t = g.out_step
-                assert shot_player != 0
                 left_team_goal_t.append({"t": shot_t, "player": shot_player})
                 # search for last pass
                 previous_pass = np.where(
