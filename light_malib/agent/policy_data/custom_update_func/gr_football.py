@@ -88,7 +88,7 @@ def update_func(policy_data_manager, eval_results, **kwargs):
     )
     dump_path = ray.get(monitor.get_expr_log_dir.remote())
     elo = kwargs.get("elo", None)
-    if "agent_0" in elo[-1][0]:
+    if len(elo)>0 and "agent_0" in elo[-1][0]:
         ray.get(monitor.add_scalar.remote("PSRO/Elo", elo[-1][1], int(elo[-1][0][-1])))
 
     if elo is not None:
