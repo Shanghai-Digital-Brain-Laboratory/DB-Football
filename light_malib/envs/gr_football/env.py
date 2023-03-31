@@ -41,10 +41,10 @@ class GRFootballEnv(BaseEnv):
         self.cfg = cfg
         scenario_config = self.cfg["scenario_config"]
         scenario_name = scenario_config["env_name"]
-        assert scenario_name in [
-            "5_vs_5",
-            "10_vs_10_kaggle",
-        ], "Because of some bugs in envs, only these scenarios are supported now. See README"
+        # assert scenario_name in [
+        #     "5_vs_5",
+        #     "10_vs_10_kaggle",
+        # ], "Because of some bugs in envs, only these scenarios are supported now. See README"
         # scenario_config["other_config_options"]["game_engine_random_seed"]=int(seed)
         self._env: FootballEnv = gfootball_official_env.create_environment(
             **scenario_config
@@ -78,6 +78,7 @@ class GRFootballEnv(BaseEnv):
         self.rollout_length = custom_reset_config["rollout_length"]
 
         self.step_ctr = 0
+        self.done = False
 
         global_timer.record("env_step_start")
         observations = self._env.reset()
@@ -123,6 +124,8 @@ class GRFootballEnv(BaseEnv):
 
         global_timer.record("env_core_step_start")
         observations, rewards, done, info = self._env.step(actions)
+        self.done = done
+
         global_timer.time("env_core_step_start", "env_core_step_end", "env_core_step")
 
         assert len(observations) == len(self.states) and len(actions) == len(
@@ -238,6 +241,9 @@ class GRFootballEnv(BaseEnv):
         }
 
     def is_terminated(self):
+        if self.done:
+            return True
+
         return self.step_ctr >= self.rollout_length
 
     def split(self, arr):
