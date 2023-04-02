@@ -15,7 +15,7 @@ from light_malib.utils.logger import Logger
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import matplotlib.pyplot as plt
-
+import wandb
 
 class Monitor:
     """
@@ -25,36 +25,64 @@ class Monitor:
 
     def __init__(self, cfg):
         self.cfg = cfg
+        self.monitor_type = cfg.monitor.get('type', 'local')
+        # if self.monitor_type == 'local':
         self.writer = SummaryWriter(log_dir=cfg.expr_log_dir)
+
+        if self.monitor_type == 'remote':
+            wandb.init(
+                project=f'{cfg.expr_group}-{cfg.expr_name}',
+                config = cfg
+            )
+
+
 
     def get_expr_log_dir(self):
         return self.cfg.expr_log_dir
 
     def add_scalar(self, tag, scalar_value, global_step, *args, **kwargs):
-        self.writer.add_scalar(tag, scalar_value, global_step, *args, **kwargs)
+        if self.monitor_type == 'local':
+            self.writer.add_scalar(tag, scalar_value, global_step, *args, **kwargs)
+        elif self.monitor_type == 'remote':
+            wandb.log({tag: scalar_value,
+                       })
+
 
     def add_multiple_scalars(
         self, main_tag, tag_scalar_dict, global_step, *args, **kwargs
     ):
         for tag, scalar_value in tag_scalar_dict.items():
             tag = main_tag + tag
-            self.writer.add_scalar(tag, scalar_value, global_step, *args, **kwargs)
+            if self.monitor_type == 'local':
+                self.writer.add_scalar(tag, scalar_value, global_step, *args, **kwargs)
+            elif self.monitor_type == 'remote':
+                wandb.log({tag: scalar_value})
+
+
 
     def add_scalars(self, main_tag, tag_scalar_dict, global_step, *args, **kwargs):
-        self.writer.add_scalars(main_tag, tag_scalar_dict, global_step, *args, **kwargs)
+        if self.monitor_type == 'local':
+            self.writer.add_scalars(main_tag, tag_scalar_dict, global_step, *args, **kwargs)
+        elif self.monitor_type == 'remote':
+            log_dict = {}
+            for tag, scalar in tag_scalar_dict.items():
+                log_dict[f'{main_tag}_{tag}'] = scalar
+            wandb.log(log_dict)
+
 
     def add_array(
         self, main_tag, image_array, xpid, ypid, global_step, color, *args, **kwargs
     ):
         array_to_rgb(
-            self.writer, main_tag, image_array, xpid, ypid, global_step, color, **kwargs
+            self.writer, main_tag, image_array, xpid, ypid, global_step, color, self.monitor_type,**kwargs
         )
 
     def close(self):
         self.writer.close()
+        wandb.finish()
 
 
-def array_to_rgb(writer, tag, array, xpid, ypid, steps, color="bwr", **kwargs):
+def array_to_rgb(writer, tag, array, xpid, ypid, steps, color="bwr", mode='local',**kwargs):
     matrix = np.array(array)
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -77,5 +105,12 @@ def array_to_rgb(writer, tag, array, xpid, ypid, steps, color="bwr", **kwargs):
     img = img / 255.0
     img = img.transpose(2, 0, 1)
 
-    writer.add_image(tag, img, steps)
+    if mode == 'local':
+        writer.add_image(tag, img, steps)
+    elif mode == 'remote':
+        wandb.log({tag: plt})
+    else:
+        Logger.warning("monitor mode is not implemented")
+        pass
+
     plt.close(fig)
