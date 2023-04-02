@@ -49,7 +49,11 @@ class DataPrefetcher:
             with self.stop_flag_lock:
                 if self.stop_flag:
                     break
+            # try:
             self.request_data(prefetching_descs)
+            # except Exception as e:
+            #     Logger.error(f"Prefetching Error: {e}")
+
         Logger.warning("DataFetcher main_task() ends")
 
     def stop_prefetching(self):
@@ -99,7 +103,11 @@ class DataPrefetcher:
 
         tasks = []
         for consumer, samples in zip(self.consumers, samples_list):
-            samples = self.stack(samples)
+            try:
+                samples = self.stack(samples)
+            except Exception as e:
+                Logger.error(f"stacking error {e}")
+
             task = consumer.local_queue_put.remote(samples)
             tasks.append(task)
         ray.get(tasks)

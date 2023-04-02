@@ -118,7 +118,7 @@ class PSROScheduler:
 
                 # gen new policy
                 training_policy_id = self.agent_manager.gen_new_policy(
-                    agent_id, self.population_id
+                    training_agent_id, self.population_id
                 )
                 policy_distributions[training_agent_id] = {training_policy_id: 1.0}
 

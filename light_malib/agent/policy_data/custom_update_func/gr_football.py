@@ -21,7 +21,7 @@ import os
 
 
 def update_func(policy_data_manager, eval_results, **kwargs):
-    assert policy_data_manager.agents.share_policies, "jh: assert symmetry"
+    # assert policy_data_manager.agents.share_policies, "jh: assert symmetry"
     for policy_comb, agents_results in eval_results.items():
         agent_id_0, policy_id_0 = policy_comb[0]
         agent_id_1, policy_id_1 = policy_comb[1]

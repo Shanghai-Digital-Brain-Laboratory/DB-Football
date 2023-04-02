@@ -193,7 +193,40 @@ def rollout_func(
         step += 1
         if not eval:
             assert data_server is not None
-            if step % sample_length == 0:
+            if sample_length == 0 and env_rets['agent_0']['done'][0][0]:            #collect after episode done
+
+                bootstrap_data = select_fields(
+                    step_data,
+                    [
+                        EpisodeKey.NEXT_OBS,
+                        EpisodeKey.DONE,
+                        EpisodeKey.CRITIC_RNN_STATE,
+                        EpisodeKey.CUR_STATE,
+                    ],
+                )
+                bootstrap_data = bootstrap_data[rollout_desc.agent_id]
+                bootstrap_data[EpisodeKey.CUR_OBS] = bootstrap_data[EpisodeKey.NEXT_OBS]
+
+                episode = stack_step_data(
+                    step_data_list,
+                    # TODO CUR_STATE is not supported now
+                    bootstrap_data,
+                )
+
+                # submit data:
+
+                data_server.save.remote(
+                    default_table_name(
+                        rollout_desc.agent_id,
+                        rollout_desc.policy_id,
+                        rollout_desc.share_policies,
+                    ),
+                    [episode],
+                )
+
+
+
+            if sample_length > 0 and step % sample_length == 0:
 
                 assist_info = env.get_AssistInfo()
 

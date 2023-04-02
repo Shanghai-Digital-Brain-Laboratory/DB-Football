@@ -102,7 +102,11 @@ class MAPPO(Policy):
         model = importlib.import_module("light_malib.model.{}".format(model_type))
         self.share_backbone = model.share_backbone
         assert not self.share_backbone, "jh: not supported now, but easy to implement"
-        self.feature_encoder = model.FeatureEncoder()
+        FE_cfg = custom_config.get('FE_cfg', None)
+        if FE_cfg is not None:
+            self.feature_encoder = model.FeatureEncoder(**FE_cfg)
+        else:
+            self.feature_encoder = model.FeatureEncoder()
 
         # jh: re-define observation space based on feature encoder
         observation_space = self.feature_encoder.observation_space

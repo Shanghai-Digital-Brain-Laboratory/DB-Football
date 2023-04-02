@@ -25,7 +25,8 @@ except ImportError as e:
 from .state import State
 from .tools.tracer import MatchTracer
 import numpy as np
-from .rewarder_basic import Rewarder
+# from .rewarder_basic import Rewarder
+from .rewarder_academy import Rewarder
 from .stats_basic import StatsCaculator
 from .game_graph.game_graph import GameGraph
 
