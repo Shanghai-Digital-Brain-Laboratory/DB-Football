@@ -25,8 +25,8 @@ except ImportError as e:
 from .state import State
 from .tools.tracer import MatchTracer
 import numpy as np
-# from .rewarder_basic import Rewarder
-from .rewarder_academy import Rewarder
+from .rewarder_basic import Rewarder as Rewarder_basic
+from .rewarder_academy import Rewarder as Rewarder_academy
 from .stats_basic import StatsCaculator
 from .game_graph.game_graph import GameGraph
 
@@ -63,7 +63,11 @@ class GRFootballEnv(BaseEnv):
             assert num > 0, "jh: if built-in ai is wanted, use built_in model."
         self.feature_encoders = {"agent_0": None, "agent_1": None}
         self.num_actions = 19
-        self.rewarder = Rewarder(self.cfg.reward_config)
+        if 'academy' in scenario_name:
+            self.rewarder = Rewarder_academy(self.cfg.reward_config)
+        else:
+            self.rewarder = Rewarder(self.cfg.reward_config)
+
         self.stats_calculators = {
             "agent_0": StatsCaculator(),
             "agent_1": StatsCaculator(),

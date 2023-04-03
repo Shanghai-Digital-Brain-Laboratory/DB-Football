@@ -16,14 +16,14 @@ distributed:
 
 framework:
   name: "psro"                #framework name
-  max_generations: 50         #psro rounds
+  max_generations: 1         #psro rounds
   meta_solver: "nash"         #'nash', 'uniform', 'pfsp'
   sync_training: False
   stopper:
     type: "win_rate_stopper"
     kwargs:
-      min_win_rate: 0.9
-      max_steps: 1000          #iteration at each psro round
+      min_win_rate: 1.1
+      max_steps: 100000          #iteration at each psro round
 agent_manager:
   num_agents: 2
   share_policies: False
@@ -69,7 +69,7 @@ rollout_manager:
         - ["node:${distributed.nodes.master.ip}",0.01]
   num_workers: 5     # numbers of parallel rollout worker, one env per worker by default
   seed: 12345
-  saving_interval: 100 # the frequency of dumping model's weight
+  saving_interval: 2000 # the frequency of dumping model's weight
   batch_size: ${rollout_manager.num_workers}
   eval_batch_size: 100
   eval_freq: 50 # epochs
