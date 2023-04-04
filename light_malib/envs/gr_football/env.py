@@ -66,7 +66,7 @@ class GRFootballEnv(BaseEnv):
         if 'academy' in scenario_name:
             self.rewarder = Rewarder_academy(self.cfg.reward_config)
         else:
-            self.rewarder = Rewarder(self.cfg.reward_config)
+            self.rewarder = Rewarder_basic(self.cfg.reward_config)
 
         self.stats_calculators = {
             "agent_0": StatsCaculator(),

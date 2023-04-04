@@ -112,6 +112,7 @@ def rollout_func(
     if render:
         env.render()
 
+    episode_mode = kwargs['episode_mode']
     record_value = kwargs.get("record_value", False)
     if record_value:
         value_list = []
@@ -153,7 +154,7 @@ def rollout_func(
         policy_outputs = {}
         global_timer.record("inference_start")
         for agent_id, (policy_id, policy) in behavior_policies.items():
-            policy_outputs[agent_id] = policy.compute_action(**policy_inputs[agent_id])
+            policy_outputs[agent_id] = policy.compute_action(explore=not eval, **policy_inputs[agent_id])
             if record_value and agent_id == "agent_0":
                 value_list.append(policy_outputs[agent_id][EpisodeKey.STATE_VALUE])
                 pos_list.append(policy_inputs[agent_id][EpisodeKey.CUR_OBS][:, 114:116])
@@ -191,7 +192,7 @@ def rollout_func(
         )
 
         step += 1
-        if not eval:
+        if not eval and episode_mode == 'traj':
             assert data_server is not None
             if sample_length == 0 and env_rets['agent_0']['done'][0][0]:            #collect after episode done
 
@@ -223,8 +224,6 @@ def rollout_func(
                     ),
                     [episode],
                 )
-
-
 
             if sample_length > 0 and step % sample_length == 0:
 
@@ -280,33 +279,30 @@ def rollout_func(
                     rollout_worker.pull_policies(policy_ids)
                     behavior_policies = rollout_worker.get_policies(policy_ids)
 
-        elif record_value:
-            if step % sample_length == 0:
-                submit_ctr = step // sample_length
-                submit_max_num = rollout_length // sample_length
 
-                s_idx = sample_length * (submit_ctr - 1)
-                e_idx = sample_length * submit_ctr
+    if not eval and episode_mode == 'time-step':
+        episode = step_data_list
+        transitions = []
+        for step in range(len(episode)-1):
+            transition = {
+                EpisodeKey.CUR_OBS: episode[step][EpisodeKey.CUR_OBS][np.newaxis, ...],
+                EpisodeKey.ACTION_MASK: episode[step][EpisodeKey.ACTION_MASK][np.newaxis, ...],
+                EpisodeKey.ACTION: episode[step][EpisodeKey.ACTION][np.newaxis, ...],
+                EpisodeKey.REWARD: episode[step][EpisodeKey.REWARD][np.newaxis, ...],
+                EpisodeKey.DONE: episode[step][EpisodeKey.DONE][np.newaxis, ...],
+                EpisodeKey.NEXT_OBS: episode[step + 1][EpisodeKey.CUR_OBS][np.newaxis, ...],
+                EpisodeKey.NEXT_ACTION_MASK: episode[step + 1][EpisodeKey.ACTION_MASK][np.newaxis, ...]
+            }
+            transitions.append(transition)
+        data_server.save.remote(
+            default_table_name(
+                rollout_desc.agent_id,
+                rollout_desc.policy_id,
+                rollout_desc.share_policies,
+            ),
+            transitions
+        )
 
-                bootstrap_data = select_fields(
-                    step_data,
-                    [
-                        EpisodeKey.NEXT_OBS,
-                        EpisodeKey.DONE,
-                        EpisodeKey.CRITIC_RNN_STATE,
-                        EpisodeKey.CUR_STATE,
-                    ],
-                )
-                bootstrap_data = bootstrap_data[rollout_desc.agent_id]
-                bootstrap_data[EpisodeKey.CUR_OBS] = bootstrap_data[EpisodeKey.NEXT_OBS]
-
-                episode = stack_step_data(
-                    step_data_list[s_idx:e_idx],
-                    # TODO CUR_STATE is not supported now
-                    bootstrap_data,
-                )
-
-                assist_info = env.get_AssistInfo()
 
     stats = env.get_episode_stats()
 

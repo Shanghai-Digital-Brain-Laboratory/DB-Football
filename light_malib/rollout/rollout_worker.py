@@ -81,7 +81,8 @@ class RolloutWorker:
             sample_length=self.cfg.sample_length,
             padding_length=self.cfg.padding_length,
             rollout_epoch=rollout_epoch,
-            credit_reassign_cfg=self.credit_reassign_cfg
+            credit_reassign_cfg=self.credit_reassign_cfg,
+            episode_mode = self.cfg.episode_mode
             # decaying_exploration_cfg=self.cfg.decaying_exploration
         )
         global_timer.time("policy_update_end", "rollout_end", "rollout")
