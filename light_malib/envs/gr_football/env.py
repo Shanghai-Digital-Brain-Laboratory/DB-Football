@@ -79,7 +79,7 @@ class GRFootballEnv(BaseEnv):
 
     def reset(self, custom_reset_config):
         self.feature_encoders = custom_reset_config["feature_encoders"]
-        self.main_agent_id = custom_reset_config["main_agent_id"]
+        self.main_agent_id = custom_reset_config["main_agent_id"]           #for tracer
         self.rollout_length = custom_reset_config["rollout_length"]
 
         self.step_ctr = 0
@@ -104,7 +104,13 @@ class GRFootballEnv(BaseEnv):
         assert len(observations) == len(self.states)
         for o, s in zip(observations, self.states):
             s.update_obs(o)
-        self.tracer.update(observations[0:1])
+
+        if self.main_agent_id=='agent_0':
+            self.tracer.update(observations[0:1])
+        elif self.main_agent_id=='agent_1':
+            self.tracer.update(observations[-1:])
+        else:
+            raise NotImplementedError
 
         encoded_observations, action_masks = self.encode()
         dones = {k: np.zeros((v, 1), dtype=bool) for k, v in self.num_players.items()}
@@ -139,7 +145,12 @@ class GRFootballEnv(BaseEnv):
         for o, a, s in zip(observations, actions, self.states):
             s.update_action(a)
             s.update_obs(o)
-        self.tracer.update(observations[0:1])
+        if self.main_agent_id=='agent_0':
+            self.tracer.update(observations[0:1])
+        elif self.main_agent_id=='agent_1':
+            self.tracer.update(observations[-1:])
+        else:
+            raise NotImplementedError
 
         global_timer.record("reward_start")
         rewards = self.get_reward(rewards)
