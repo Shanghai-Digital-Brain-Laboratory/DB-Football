@@ -28,7 +28,7 @@ import ray
 from light_malib.utils.desc.task_desc import RolloutDesc
 from light_malib.utils.timer import global_timer
 import random
-
+import torch
 
 class RolloutWorker:
     def __init__(self, id, seed, cfg, agents: Agents):
@@ -48,6 +48,8 @@ class RolloutWorker:
         self.rollout_func = module.rollout_func
 
         self.credit_reassign_cfg = self.cfg.credit_reassign
+        
+        torch.set_num_threads(1)
 
     def rollout(self, rollout_desc: RolloutDesc, eval=False, rollout_epoch=None):
         global_timer.record("rollout_start")
