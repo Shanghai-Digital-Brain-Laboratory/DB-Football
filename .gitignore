@@ -130,6 +130,7 @@ dmypy.json
 .pyre/
 
 # Workspace
+.history
 .vscode
 .idea
 _build
