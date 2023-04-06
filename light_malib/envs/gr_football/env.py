@@ -41,6 +41,12 @@ class GRFootballEnv(BaseEnv):
         super().__init__(id, seed)
         self.cfg = cfg
         scenario_config = self.cfg["scenario_config"]
+        
+        # check: it is to add extra space, which is wrongly parsed by the official env.
+        offcial_rewards=scenario_config["rewards"].split(",")
+        for official_reward in offcial_rewards:
+            assert official_reward in ["scoring","checkpoints"],official_reward
+            
         scenario_name = scenario_config["env_name"]
         # assert scenario_name in [
         #     "5_vs_5",

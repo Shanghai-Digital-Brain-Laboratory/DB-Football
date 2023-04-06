@@ -101,7 +101,7 @@ rollout_manager:
           number_of_left_players_agent_controls: 4
           number_of_right_players_agent_controls: 4
           representation: "raw"
-          rewards: "scoring, checkpoints"
+          rewards: "scoring,checkpoints"
           stacked: False
           logdir: '/tmp/football/malib_psro'
           write_goal_dumps: False
