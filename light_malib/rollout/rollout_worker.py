@@ -72,7 +72,7 @@ class RolloutWorker:
         rollout_length = (
             self.cfg.rollout_length if not eval else self.cfg.eval_rollout_length
         )
-        result = self.rollout_func(
+        results = self.rollout_func(
             eval,
             self,
             rollout_desc,
@@ -89,10 +89,10 @@ class RolloutWorker:
         )
         global_timer.time("policy_update_end", "rollout_end", "rollout")
 
-        result["timer"] = copy.deepcopy(global_timer.elapses)
+        results["timer"] = copy.deepcopy(global_timer.elapses)
         global_timer.clear()
 
-        return result
+        return results
 
     def random_permute(self, rollout_desc: RolloutDesc):
         main_agent_id = rollout_desc.agent_id

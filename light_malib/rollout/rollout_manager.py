@@ -481,13 +481,14 @@ class RolloutManager:
     def reduce_rollout_results(self, rollout_results):
         results = defaultdict(list)
         for rollout_result in rollout_results:
-            # TODO(jh): policy-wise stats
-            # NOTE(jh): now in training, we only care about statistics of the agent is trained
-            main_agent_id = rollout_result["main_agent_id"]
-            # policy_ids=rollout_result["policy_ids"]
-            stats = rollout_result["stats"][main_agent_id]
-            for k, v in stats.items():
-                results[k].append(v)
+            for _result in rollout_result["results"]:
+                # TODO(jh): policy-wise stats
+                # NOTE(jh): now in training, we only care about statistics of the agent is trained
+                main_agent_id = _result["main_agent_id"]
+                # policy_ids=rollout_result["policy_ids"]
+                stats = _result["stats"][main_agent_id]
+                for k, v in stats.items():
+                    results[k].append(v)
 
         for k, v in results.items():
             results[k] = np.mean(v)
@@ -508,14 +509,15 @@ class RolloutManager:
         # policy_comb = ((agent_id, policy_id),)
         results = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         for rollout_result in rollout_results:
-            policy_ids = rollout_result["policy_ids"]
-            stats = rollout_result["stats"]
-            policy_comb = tuple(
-                [(agent_id, policy_id) for agent_id, policy_id in policy_ids.items()]
-            )
-            for agent_id, agent_stats in stats.items():
-                for key, value in agent_stats.items():
-                    results[policy_comb][agent_id][key].append(value)
+            for _result in rollout_result["results"]:
+                policy_ids = _result["policy_ids"]
+                stats = _result["stats"]
+                policy_comb = tuple(
+                    [(agent_id, policy_id) for agent_id, policy_id in policy_ids.items()]
+                )
+                for agent_id, agent_stats in stats.items():
+                    for key, value in agent_stats.items():
+                        results[policy_comb][agent_id][key].append(value)
 
         for policy_comb, stats in results.items():
             for agent_id, agent_stats in stats.items():

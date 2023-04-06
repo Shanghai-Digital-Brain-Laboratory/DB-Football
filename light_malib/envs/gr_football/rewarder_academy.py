@@ -47,12 +47,10 @@ class Rewarder:
         if obs["ball_owned_team"] != -1:
             self.last_ball_owned_team = obs["ball_owned_team"]
 
-
-
         reward = (
             self.reward_config["goal_reward"] * goal_reward(prev_obs, obs)
+            + self.reward_config["official_reward"] * rew
         )
-
 
         return reward
 
