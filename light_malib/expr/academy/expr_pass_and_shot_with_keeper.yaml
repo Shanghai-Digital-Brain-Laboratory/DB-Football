@@ -1,5 +1,5 @@
 expr_group: gr_football
-expr_name: academy_3_vs_1_with_keeper
+expr_name: academy_pass_and_shot_with_keeper
 log_dir: ./logs             #log directory
 seed: 0
 eval_only: False            #True if only want evaluation
@@ -97,8 +97,8 @@ rollout_manager:
       - cls: "gr_football"
         id_prefix: "gr_footbal"
         scenario_config:
-          env_name: "benchmark_academy_3_vs_1_with_keeper"
-          number_of_left_players_agent_controls: 3
+          env_name: "benchmark_academy_pass_and_shoot_with_keeper"
+          number_of_left_players_agent_controls: 2
           number_of_right_players_agent_controls: 1
           representation: "raw"
           rewards: "scoring,checkpoints"
@@ -214,8 +214,8 @@ populations:
 
       # set hyper parameter
       custom_config:
-        FE_cfg:
-          num_players: 6    #config sent to the Feature Encoder
+        FE_cfg:          # config sent to the Feature Encoder
+          num_players: 5   # total number of players on the pitch  
         gamma: 0.99
         use_cuda: False  # enable cuda or not
         use_q_head: False

@@ -28,7 +28,7 @@ class FeatureEncoder:
         self.player_pos_x, self.player_pos_y = 0, 0
         self.action_n = 19
         self.use_action_gramma = False
-        self.num_players = kwargs['num_players']
+        self.num_players = kwargs['num_players'] # the total number of players on the pitch
 
 
     # def get_feature_dims(self):
@@ -51,7 +51,7 @@ class FeatureEncoder:
 
     @property
     def observation_space(self):
-        return Box(low=-1000, high=1000, shape=[105])
+        return Box(low=-1000, high=1000, shape=[(self.num_players-1)*7+70])
 
     def encode_each(self, state):
         obs = state.obs
@@ -95,25 +95,25 @@ class FeatureEncoder:
             ball_far = 0.0
 
         avail = self.get_available_actions(obs, ball_distance, his_actions)
-        player_state = np.concatenate(
+        player_state = np.concatenate( # 19
             (
                 # avail[2:],
-                obs["left_team"][player_num],
-                player_direction * 100,
-                [player_speed * 100],
-                player_role_onehot,
-                [ball_far, player_tired, is_dribbling, is_sprinting],
+                obs["left_team"][player_num], # 2
+                player_direction * 100, # 2
+                [player_speed * 100], # 1
+                player_role_onehot, # 10
+                [ball_far, player_tired, is_dribbling, is_sprinting], # 4
             )
         )
 
-        ball_state = np.concatenate(
+        ball_state = np.concatenate( # 18
             (
-                np.array(obs["ball"]),
-                np.array(ball_which_zone),
-                np.array([ball_x_relative, ball_y_relative]),
-                np.array(obs["ball_direction"]) * 20,
+                np.array(obs["ball"]), # 3
+                np.array(ball_which_zone), # 6
+                np.array([ball_x_relative, ball_y_relative]), # 2
+                np.array(obs["ball_direction"]) * 20, # 3
                 np.array(
-                    [ball_speed * 20, ball_distance, ball_owned, ball_owned_by_us]
+                    [ball_speed * 20, ball_distance, ball_owned, ball_owned_by_us] # 4
                 ),
             )
         )
@@ -130,13 +130,13 @@ class FeatureEncoder:
         left_team_tired = np.delete(
             obs["left_team_tired_factor"], player_num, axis=0
         ).reshape(-1, 1)
-        left_team_state = np.concatenate(
+        left_team_state = np.concatenate( # 7*(num_left_players-1), remove himself
             (
-                left_team_relative * 2,
-                obs_left_team_direction * 100,
-                left_team_speed * 100,
-                left_team_distance * 2,
-                left_team_tired,
+                left_team_relative * 2, # 2
+                obs_left_team_direction * 100, # 2
+                left_team_speed * 100, # 1
+                left_team_distance * 2, # 1
+                left_team_tired, # 1
             ),
             axis=1,
         )
@@ -152,7 +152,7 @@ class FeatureEncoder:
             obs_right_team_direction, axis=1, keepdims=True
         )
         right_team_tired = np.array(obs["right_team_tired_factor"]).reshape(-1, 1)
-        right_team_state = np.concatenate(
+        right_team_state = np.concatenate( # 7*num_right_players
             (
                 obs_right_team * 2,
                 obs_right_team_direction * 100,
@@ -166,13 +166,13 @@ class FeatureEncoder:
         right_closest_state = right_team_state[right_closest_idx]
 
         state_dict = {
-            "player": player_state,
-            "ball": ball_state,
-            "left_team": left_team_state,
-            "left_closest": left_closest_state,
-            "right_team": right_team_state,
-            "right_closest": right_closest_state,
-            "avail": avail,
+            "player": player_state, # 19
+            "ball": ball_state, # 18
+            "left_team": left_team_state, # 7*num_left_players
+            "left_closest": left_closest_state, # 7
+            "right_team": right_team_state, # 7*num_right_players
+            "right_closest": right_closest_state, # 7
+            "avail": avail, # 19
         }
 
 
