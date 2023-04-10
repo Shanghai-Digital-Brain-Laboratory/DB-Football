@@ -115,11 +115,17 @@ class GRFootballEnv(BaseEnv):
         encoded_observations, action_masks = self.encode()
         dones = {k: np.zeros((v, 1), dtype=bool) for k, v in self.num_players.items()}
 
+        team_0_state = self.states[0].get_team_states()
+        team_1_state = self.states[-1].get_team_states()
+        team_state = {agent_id: self.states[(-1)**idx].get_team_states()
+                      for idx, agent_id in enumerate(self.agent_ids)}
+
         rets = {
             agent_id: {
                 EpisodeKey.NEXT_OBS: encoded_observations[agent_id],
                 EpisodeKey.ACTION_MASK: action_masks[agent_id],
                 EpisodeKey.DONE: dones[agent_id],
+                EpisodeKey.GLOBAL_STATE: team_state[agent_id][np.newaxis,...]
             }
             for agent_id in self.agent_ids
         }
@@ -171,6 +177,10 @@ class GRFootballEnv(BaseEnv):
             k: np.full((v, 1), fill_value=done, dtype=bool)
             for k, v in self.num_players.items()
         }
+        team_0_state = self.states[0].get_team_states()
+        team_1_state = self.states[-1].get_team_states()
+        team_state = {agent_id: self.states[(-1)**idx].get_team_states()
+                      for idx, agent_id in enumerate(self.agent_ids)}
 
         rets = {
             agent_id: {
@@ -178,6 +188,7 @@ class GRFootballEnv(BaseEnv):
                 EpisodeKey.ACTION_MASK: action_masks[agent_id],
                 EpisodeKey.REWARD: rewards[agent_id],
                 EpisodeKey.DONE: dones[agent_id],
+                EpisodeKey.GLOBAL_STATE: team_state[agent_id][np.newaxis,...]
             }
             for agent_id in self.agent_ids
         }

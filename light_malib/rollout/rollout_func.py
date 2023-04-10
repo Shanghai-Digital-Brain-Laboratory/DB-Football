@@ -187,7 +187,8 @@ def rollout_func(
             env_rets,
             select_fields(
                 policy_outputs,
-                [EpisodeKey.ACTOR_RNN_STATE, EpisodeKey.CRITIC_RNN_STATE],
+                [EpisodeKey.ACTOR_RNN_STATE, EpisodeKey.CRITIC_RNN_STATE,
+                 EpisodeKey.GLOBAL_STATE],          #gloabl state for the next observatio
             ),
         )
 
@@ -284,14 +285,19 @@ def rollout_func(
         episode = step_data_list
         transitions = []
         for step in range(len(episode)-1):
+            # assert episode[step][EpisodeKey.CRITIC_RNN_STATE].shape[1]==1, print(
+            #     f'only support rnn_num 1 for now, {episode[step][EpisodeKey.CRITIC_RNN_STATE].shape}')
             transition = {
-                EpisodeKey.CUR_OBS: episode[step][EpisodeKey.CUR_OBS][np.newaxis, ...],
-                EpisodeKey.ACTION_MASK: episode[step][EpisodeKey.ACTION_MASK][np.newaxis, ...],
+                EpisodeKey.CUR_OBS: episode[step][EpisodeKey.CUR_OBS][np.newaxis,...],
+                EpisodeKey.ACTION_MASK: episode[step][EpisodeKey.ACTION_MASK][np.newaxis,...],
                 EpisodeKey.ACTION: episode[step][EpisodeKey.ACTION][np.newaxis, ...],
                 EpisodeKey.REWARD: episode[step][EpisodeKey.REWARD][np.newaxis, ...],
                 EpisodeKey.DONE: episode[step][EpisodeKey.DONE][np.newaxis, ...],
                 EpisodeKey.NEXT_OBS: episode[step + 1][EpisodeKey.CUR_OBS][np.newaxis, ...],
-                EpisodeKey.NEXT_ACTION_MASK: episode[step + 1][EpisodeKey.ACTION_MASK][np.newaxis, ...]
+                EpisodeKey.NEXT_ACTION_MASK: episode[step + 1][EpisodeKey.ACTION_MASK][np.newaxis, ...],
+                EpisodeKey.GLOBAL_STATE: episode[step][EpisodeKey.GLOBAL_STATE][np.newaxis, ...],
+                EpisodeKey.NEXT_GLOBAL_STATE: episode[step + 1][EpisodeKey.GLOBAL_STATE][np.newaxis, ...],
+                # EpisodeKey.CRITIC_RNN_STATE: np.transpose(episode[step][EpisodeKey.CRITIC_RNN_STATE], axes=(1,0,2))
             }
             transitions.append(transition)
         data_server.save.remote(
