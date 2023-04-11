@@ -222,7 +222,7 @@ def rollout_func(
             step_data,
             select_fields(
                 policy_outputs,
-                [EpisodeKey.ACTION, EpisodeKey.ACTION_DIST, EpisodeKey.STATE_VALUE],
+                [EpisodeKey.ACTION, EpisodeKey.ACTION_LOG_PROB, EpisodeKey.STATE_VALUE],
             ),
         )
 

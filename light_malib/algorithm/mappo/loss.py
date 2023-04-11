@@ -114,7 +114,7 @@ class MAPPOLoss(LossFunc):
             value_preds_batch,
             return_batch,
             active_masks_batch,
-            old_action_probs_batch,
+            old_action_log_probs_batch,
             available_actions_batch,
             actor_rnn_states_batch,
             critic_rnn_states_batch,
@@ -127,7 +127,7 @@ class MAPPOLoss(LossFunc):
             sample[EpisodeKey.STATE_VALUE],
             sample[EpisodeKey.RETURN],
             sample.get(EpisodeKey.ACTIVE_MASK, None),
-            sample[EpisodeKey.ACTION_DIST],
+            sample[EpisodeKey.ACTION_LOG_PROB],
             sample[EpisodeKey.ACTION_MASK],
             sample[EpisodeKey.ACTOR_RNN_STATE],
             sample[EpisodeKey.CRITIC_RNN_STATE],
@@ -151,15 +151,11 @@ class MAPPOLoss(LossFunc):
             active_masks_batch,
         )
 
-        actions_batch = actions_batch.reshape(actions_batch.shape[0], 1)
-        old_action_log_probs_batch = torch.log(
-            old_action_probs_batch.gather(-1, actions_batch)
-        )
         imp_weights = torch.exp(
-            action_log_probs.unsqueeze(-1) - old_action_log_probs_batch
-        )
+            action_log_probs - old_action_log_probs_batch
+        ).view(-1,1)
         approx_kl = (
-            (old_action_log_probs_batch - action_log_probs.unsqueeze(-1)).mean().item()
+            (old_action_log_probs_batch - action_log_probs).mean().item()
         )
 
         if self.use_modified_mappo:

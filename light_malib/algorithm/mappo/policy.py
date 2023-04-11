@@ -201,7 +201,7 @@ class MAPPO(Policy):
             explore = kwargs["explore"]
 
             if hasattr(self.actor, "compute_action"):
-                actions, actor_rnn_states, action_probs = self.actor.compute_action(
+                actions, actor_rnn_states, action_log_probs = self.actor.compute_action(
                     observations, actor_rnn_states, rnn_masks, action_masks, explore
                 )
             else:
@@ -215,7 +215,7 @@ class MAPPO(Policy):
 
                 dist = torch.distributions.Categorical(logits=logits)
                 actions = dist.sample() if explore else dist.probs.argmax(dim=-1)
-                action_probs = dist.probs  # num_action
+                action_log_probs = dist.log_prob(actions) # num_action
 
             actor_rnn_states = actor_rnn_states.detach().cpu().numpy()
             actions = actions.detach().cpu().numpy()
@@ -228,7 +228,7 @@ class MAPPO(Policy):
                         exploration_actions[i] = int(actions[i])
                 actions = exploration_actions
 
-            action_probs = action_probs.detach().cpu().numpy()
+            action_log_probs = action_log_probs.detach().cpu().numpy()
 
             if EpisodeKey.CUR_STATE not in kwargs:
                 states = observations
@@ -241,7 +241,7 @@ class MAPPO(Policy):
 
             return {
                 EpisodeKey.ACTION: actions,
-                EpisodeKey.ACTION_DIST: action_probs,
+                EpisodeKey.ACTION_LOG_PROB: action_log_probs,
                 EpisodeKey.STATE_VALUE: values,
                 EpisodeKey.ACTOR_RNN_STATE: actor_rnn_states,
                 EpisodeKey.CRITIC_RNN_STATE: critic_rnn_states,
