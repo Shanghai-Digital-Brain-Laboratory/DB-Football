@@ -61,20 +61,29 @@ total_run = args.total_run
 total_win = 0
 offset = np.random.randint(0, 2)
 for idx in range(total_run):
-    if (offset + idx) % 2 == 0:
+    if cfg.agent_manager.share_policies:
+        # share_policies==True means policies are exchangable. 
+        if (offset + idx) % 2 == 0:
+            agent = "agent_0"
+            behavior_policies = {
+                "agent_0": (policy_id_0, policy_0),
+                "agent_1": (policy_id_1, policy_1),
+            }
+            Logger.info("run {}/{}: model_0 vs model_1".format(idx + 1, total_run))
+        else:
+            agent = "agent_1"
+            behavior_policies = {
+                "agent_0": (policy_id_1, policy_1),
+                "agent_1": (policy_id_0, policy_0),
+            }
+            Logger.info("run {}/{}: model_1 vs model_0".format(idx + 1, total_run))
+    else:
         agent = "agent_0"
         behavior_policies = {
             "agent_0": (policy_id_0, policy_0),
             "agent_1": (policy_id_1, policy_1),
         }
         Logger.info("run {}/{}: model_0 vs model_1".format(idx + 1, total_run))
-    else:
-        agent = "agent_1"
-        behavior_policies = {
-            "agent_0": (policy_id_1, policy_1),
-            "agent_1": (policy_id_0, policy_0),
-        }
-        Logger.info("run {}/{}: model_1 vs model_0".format(idx + 1, total_run))
     rollout_results = rollout_func(
         eval=True,
         rollout_worker=None,
@@ -82,7 +91,7 @@ for idx in range(total_run):
         env=env,
         behavior_policies=behavior_policies,
         data_server=None,
-        rollout_length=3001,
+        rollout_length=cfg.rollout_manager.worker.eval_rollout_length,
         render=False,
     )
     Logger.info("stats of model_0 is {}".format(rollout_results["stats"][agent]))

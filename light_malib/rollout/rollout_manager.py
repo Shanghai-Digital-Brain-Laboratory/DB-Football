@@ -145,7 +145,7 @@ class RolloutManager:
                     self.rollout_epoch += 1
                     rollout_epoch = self.rollout_epoch
 
-                Logger.info("Rollout {}".format(rollout_epoch))
+                Logger.info("Rollout {}, Global Step {}".format(rollout_epoch, self.get_global_step(rollout_epoch)))
 
                 global_timer.record("batch_start")
                 rollout_results = self.rollout_batch(
@@ -168,8 +168,8 @@ class RolloutManager:
 
                 if rollout_epoch % self.eval_freq == 0:
                     Logger.info(
-                        "Rollout Eval {} eval {} rollouts".format(
-                            rollout_epoch, self.eval_batch_size
+                        "Rollout Eval {}, Global Step {}".format(
+                            rollout_epoch, self.get_global_step(rollout_epoch)
                         )
                     )
 
@@ -181,6 +181,11 @@ class RolloutManager:
                     )
                     
                     results, timer_results = self.reduce_rollout_results(rollout_results)
+                    Logger.info(
+                        "Rollout Eval {}: average reward: {}, average win: {}".format(
+                            rollout_epoch, results["reward"], results["win"] 
+                        )
+                    )
                     self.log_to_tensorboard(results,timer_results,rollout_epoch=rollout_epoch,main_tag="RolloutEval")
                 
                 # TODO(jh): currently eval is not supported in async, so we use rollout stats instead
@@ -235,7 +240,7 @@ class RolloutManager:
                 rollout_desc.policy_id,
                 rollout_desc.policy_distributions,
                 rollout_desc.share_policies,
-                sync=False,
+                sync=rollout_desc.sync,
                 stopper=None,
             )
         ] * batch_size
@@ -279,7 +284,7 @@ class RolloutManager:
                     self.rollout_epoch += 1
                     rollout_epoch = self.rollout_epoch
 
-                Logger.info("Rollout {}".format(rollout_epoch))
+                Logger.info("Rollout {}, Global Step {}".format(rollout_epoch,self.get_global_step(rollout_epoch)))
 
                 global_timer.record("batch_start")
                 results, timer_results = self.get_batch(
@@ -385,8 +390,8 @@ class RolloutManager:
                 if eval_submit_ctr==0:
                     eval_rollout_epoch=rollout_epoch
                     Logger.info(
-                        "Rollout Eval {}: eval {} rollouts".format(
-                            eval_rollout_epoch, self.eval_batch_size
+                        "Rollout Eval {}, Global Step {}".format(
+                            eval_rollout_epoch, self.get_global_step(eval_rollout_epoch)
                         )
                     )
                     eval=True   
@@ -443,14 +448,19 @@ class RolloutManager:
             
     ##### Async Rollout END #####
     
+    def get_global_step(self,rollout_epoch):
+        global_step=rollout_epoch*self.batch_size*(self.cfg.worker.rollout_length if self.cfg.worker.sample_length<=0 else self.cfg.worker.sample_length)
+        return global_step
+    
     def log_to_tensorboard(self, results, timer_results, rollout_epoch, main_tag="Rollout"):
         # log to tensorboard, etc...
+        global_step=self.get_global_step(rollout_epoch)
         tag = "{}/{}/{}/".format(
             main_tag, self.rollout_desc.agent_id, self.rollout_desc.policy_id
         )
         ray.get(
             self.monitor.add_multiple_scalars.remote(
-                tag, results, global_step=rollout_epoch
+                tag, results, global_step=global_step
             )
         )
         tag = "{}Timer/{}/{}/".format(
@@ -458,7 +468,7 @@ class RolloutManager:
         )
         ray.get(
             self.monitor.add_multiple_scalars.remote(
-                tag, timer_results, global_step=rollout_epoch
+                tag, timer_results, global_step=global_step
             )
         )  
 

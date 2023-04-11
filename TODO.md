@@ -4,4 +4,9 @@
 
 # ENHANCEMENT
 1. [ ] eval rollouts can also be used as training data.
-2. [ ] tensorboard graph should use num_steps not num_rollouts as x-axis.
+2. [x] tensorboard graph should use num_steps not num_rollouts as x-axis.
+3. [ ] plot grad norm.
+4. [ ] tensorboard graph with time as x-axis.
+
+# CHECK
+1. [ ] check the sync-training performance, especially the evaluation performance.
