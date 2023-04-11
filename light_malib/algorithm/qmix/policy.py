@@ -146,17 +146,34 @@ class QMix(nn.Module):
             self.q_network_input_dim = self.obs_dim
 
         # Local recurrent q network for the agent
+        self.n_agent = custom_config.local_q_config.n_agent
+        if self.n_agent == 1:
+            self.critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
+            self.target_critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
 
-        self.critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
+        else:
+            self.critic = [AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
+                           for _ in range(self.n_agent)]
+            self.target_critic = [AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
+                           for _ in range(self.n_agent)]
+            for i in range(len(self.critic)):
+                self.register_module(f'critic_{i}', self.critic[i])
+                self.register_module(f"target_critic_{i}", self.target_critic[i])
+                hard_update(self.target_critic[i], self.critic[i])
+
+        # self.critic2 = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
         self.fake_actor = ExploreActor(model_config["actor"],
                                   observation_space,
                                   action_space,
                                   custom_config,
                                   model_config["initialization"],)
 
-        self.target_critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
+        # self.critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
+        # self.target_critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
+        # hard_update(self.target_critic, self.critic)
+        # for i,j in self.named_parameters():
+        #     Logger.error(f"{i}, {j.shape}")
 
-        hard_update(self.target_critic, self.critic)
 
         # self.epsilon_start = 0.5
         # self.epsilon_finish = 0.01
@@ -188,7 +205,11 @@ class QMix(nn.Module):
         }
 
     def soft_update(self, tau):
-        soft_update(self.target_critic, self.critic, tau)
+        if self.n_agent!=1:
+            for i in range(len(self.critic)):
+                soft_update(self.target_critic[i], self.critic[i], tau)
+        else:
+            soft_update(self.target_critic, self.critic, tau)
 
 
     @property
@@ -202,14 +223,18 @@ class QMix(nn.Module):
         return self_copy
 
     def get_initial_state(self, batch_size):
+
         return {
             EpisodeKey.ACTOR_RNN_STATE: np.zeros(
-                (batch_size, self.rnn_layer_num, self.hidden_size)
+                (self.n_agent, self.rnn_layer_num, self.hidden_size)
             ),
             EpisodeKey.CRITIC_RNN_STATE: np.zeros(
-                (batch_size, self.rnn_layer_num, self.hidden_size)
+                (self.n_agent, self.rnn_layer_num, self.hidden_size)
             ),
         }
+
+
+
 
     def get_q_values(self, obs_batch, prev_action_batch, rnn_states, action_batch=None):
         """
@@ -229,7 +254,17 @@ class QMix(nn.Module):
         else:
             input_batch = obs_batch
 
-        q_batch, new_rnn_states = self.critic(input_batch, rnn_states)
+        if self.n_agent==1:
+            q_batch,new_rnn_states = self.critic(input_batch, rnn_states)
+        else:
+            q_batch, new_rnn_states = [], []
+            for i in range(self.n_agent):
+                _q_batch, _new_rnn_states = self.critic[i](input_batch[i][np.newaxis,...], rnn_states[i,...][np.newaxis])
+                q_batch.append(_q_batch)
+                new_rnn_states.append(_new_rnn_states)
+            q_batch = torch.concatenate(q_batch)
+            new_rnn_states = torch.stack(new_rnn_states)
+
 
         if action_batch is not None:
             action_batch = to_torch(action_batch).to(self.device)
@@ -245,6 +280,7 @@ class QMix(nn.Module):
         :param action_batch: (torch.Tensor) actions taken by the agent.
         :return q_values: (torch.Tensor) q values in q_batch corresponding to actions in action_batch
         """
+        raise NotImplementedError
         if self.multidiscrete:
             ind = 0
             all_q_values = []
@@ -267,6 +303,7 @@ class QMix(nn.Module):
 
     def get_actions(self, obs, prev_actions, rnn_states, available_actions=None, t_env=None, explore=False):
         """See parent class."""
+        raise NotImplementedError
         q_values_out, new_rnn_states = self.get_q_values(obs, prev_actions, rnn_states)
         onehot_actions, greedy_Qs = self.actions_from_q(q_values_out, available_actions=available_actions,
                                                         explore=explore, t_env=t_env)
@@ -396,7 +433,14 @@ class QMix(nn.Module):
     #     return self.critic.parameters()
 
     def dump(self, dump_dir):
-        torch.save(self.critic.state_dict(), os.path.join(dump_dir, "critic_state_dict.pt"))
+        if self.n_agent==1:
+            torch.save(self.critic.state_dict(), os.path.join(dump_dir, "critic_state_dict.pt"))
+        else:
+            model_dict = {}
+            for i in range(self.n_agent):
+                model_dict[f"critic_{i}"] = self.critic[i].state_dict()
+            torch.save(model_dict, os.path.join(dump_dir, "critic_state_dict.pt"))
+
         pickle.dump(self.description, open(os.path.join(dump_dir, "desc.pkl"), "wb"))
 
     @staticmethod

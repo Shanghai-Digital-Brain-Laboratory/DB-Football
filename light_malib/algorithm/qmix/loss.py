@@ -49,8 +49,13 @@ class QMIXLoss(LossFunc):
             # assert isinstance(p, DQN), type(p)
             # p.soft_update(self._params["tau"])
         # self.policy.soft_update(self._params['tau'])
-        soft_update(self.policy.target_critic, self.policy.critic,
-                    self._params['tau'])
+        if isinstance(self.policy.critic, list):
+            for i in range(len(self.policy.critic)):
+                soft_update(self.policy.target_critic[i], self.policy.critic[i],
+                            self._params['tau'])
+        else:
+            soft_update(self.policy.target_critic, self.policy.critic,
+                        self._params['tau'])
 
 
         with torch.no_grad():
@@ -80,7 +85,12 @@ class QMIXLoss(LossFunc):
             self.optimizers.add_param_group({"params": self.mixer.parameters()})
 
         # for policy in self.policy.values():
-        self.optimizers.add_param_group({"params": self.policy.critic.parameters()})
+        if not isinstance(self.policy.critic, list):
+            self.optimizers.add_param_group({"params": self.policy.critic.parameters()})
+        else:
+            for i in range(len(self.policy.critic)):
+                self.optimizers.add_param_group({"params": self.policy.critic[i].parameters()})
+
 
     def step(self) -> Any:
         pass
@@ -120,12 +130,21 @@ class QMIXLoss(LossFunc):
             _next_obs = next_observations[:, agent_idx, ...]
             _act = actions[:, agent_idx, ...]
             _next_action_mask = next_action_masks[:, agent_idx, ...]
-            _q, _ = policy.critic(_obs, torch.ones(1,1,1).to(_obs.device))
+            if not isinstance(policy.critic, list):
+                _q, _ = policy.critic(_obs, torch.ones(1,1,1).to(_obs.device))
+            else:
+                _q, _ = policy.critic[agent_idx](_obs, torch.ones(1,1,1).to(_obs.device))
+
+
             q = _q.gather(-1, _act.unsqueeze(1)).squeeze()
             # q = policy.critic(_obs, torch.ones(1,1,1).to(_obs.device)).gather(-1, _act.unsqueeze(1)).squeeze()
             q_vals.append(q)
 
-            next_q, _ = policy.target_critic(_next_obs, torch.ones(1,1,1).to(_next_obs.device))
+            if not isinstance(policy.critic, list):
+                next_q, _ = policy.target_critic(_next_obs, torch.ones(1, 1, 1).to(_next_obs.device))
+            else:
+                next_q, _ = policy.target_critic[agent_idx](_next_obs, torch.ones(1, 1, 1).to(_next_obs.device))
+
             next_q[_next_action_mask==0]=-9999999
             next_max_q = next_q.max(1)[0]
             next_max_q_vals.append(next_max_q.detach())
@@ -146,19 +165,26 @@ class QMIXLoss(LossFunc):
         self.optimizers.zero_grad()
         loss.backward()
         if self._params['use_max_grad_norm']:
-            torch.nn.utils.clip_grad_norm_(
-                self._policy.critic.parameters(), self._params['max_grad_norm']
-            )
+            if not isinstance(self._policy.critic, list):
+                torch.nn.utils.clip_grad_norm_(
+                    self._policy.critic.parameters(), self._params['max_grad_norm']
+                )
+            else:
+                for c in self._policy.critic:
+                    torch.nn.utils.clip_grad_norm_(
+                        c.parameters(), self._params['max_grad_norm']
+                    )
+
             torch.nn.utils.clip_grad_norm_(
                 self.mixer.parameters(), self._params['max_grad_norm']
             )
 
-        for n, p in policy.critic.named_parameters():
-            if p.grad is None:
-                Logger.error(f'critic {n} has no grad')
-        for n, p in self.mixer.named_parameters():
-            if p.grad is None:
-                Logger.error(f'mixer {n} has no grad')
+        # for n, p in policy.critic.named_parameters():
+        #     if p.grad is None:
+        #         Logger.error(f'critic {n} has no grad')
+        # for n, p in self.mixer.named_parameters():
+        #     if p.grad is None:
+        #         Logger.error(f'mixer {n} has no grad')
 
 
 

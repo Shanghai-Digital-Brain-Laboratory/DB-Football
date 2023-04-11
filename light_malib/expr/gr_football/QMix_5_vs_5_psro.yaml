@@ -54,6 +54,7 @@ policy_data_manager:
       missing_value: -100 
         
 monitor:
+  type: "local"
   distributed:
     resources:
       num_cpus: 1
@@ -144,7 +145,7 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 512 # how many data sample from DatasetServer per time.
+  batch_size: 256 # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
@@ -210,6 +211,7 @@ populations:
         prev_act_inp: False
         num_mini_batch: 1
         local_q_config:
+          n_agent: 4          #1 if parameter-sharing
           use_orthogonal: True
           hidden_size: 128
           use_rnn_layer: False
