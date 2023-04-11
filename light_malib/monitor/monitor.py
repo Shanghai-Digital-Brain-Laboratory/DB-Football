@@ -36,6 +36,10 @@ class Monitor:
                 project=f'{cfg.expr_group}-{cfg.expr_name}',
                 config = cfg
             )
+            wandb.define_metric("Rollout/step")
+            wandb.define_metric("Training/step")
+            wandb.define_metric('Rollout/*', step_metric='Rollout/step')
+            wandb.define_metric("Training/*", step_metric='Training/step')
 
 
 
@@ -46,8 +50,12 @@ class Monitor:
         if self.monitor_type == 'local':
             self.writer.add_scalar(tag, scalar_value, global_step, *args, **kwargs)
         elif self.monitor_type == 'remote':
-            wandb.log({tag: scalar_value,
-                       })
+            if 'Rollout' in tag:
+                wandb.log({"Rollout/step": global_step,tag: scalar_value})
+            elif 'Training' in tag:
+                wandb.log({"Training/step": global_step, tag: scalar_value})
+            else:
+                wandb.log({tag:scalar_value})
 
 
     def add_multiple_scalars(
@@ -58,8 +66,12 @@ class Monitor:
             if self.monitor_type == 'local':
                 self.writer.add_scalar(tag, scalar_value, global_step, *args, **kwargs)
             elif self.monitor_type == 'remote':
-                wandb.log({tag: scalar_value})
-
+                if 'Rollout' in tag:
+                    wandb.log({"Rollout/step": global_step, tag: scalar_value})
+                elif 'Training' in tag:
+                    wandb.log({"Training/step": global_step, tag: scalar_value})
+                else:
+                    wandb.log({tag:scalar_value})
 
 
     def add_scalars(self, main_tag, tag_scalar_dict, global_step, *args, **kwargs):
@@ -69,6 +81,11 @@ class Monitor:
             log_dict = {}
             for tag, scalar in tag_scalar_dict.items():
                 log_dict[f'{main_tag}_{tag}'] = scalar
+                if 'Rollout' in tag:
+                    log_dict['Rollout/step'] = global_step
+                elif 'Training' in tag:
+                    log_dict['Training/step'] = global_step
+
             wandb.log(log_dict)
 
 

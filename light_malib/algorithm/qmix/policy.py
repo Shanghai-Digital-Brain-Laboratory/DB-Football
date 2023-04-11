@@ -125,7 +125,7 @@ class QMix(nn.Module):
         self.discrete = True
         self.multidiscrete = False
         self.prev_act_inp = custom_config.prev_act_inp
-        self.rnn_layer_num = custom_config.local_q_config.layer_N
+        self.rnn_layer_num = 1 #custom_config.local_q_config.layer_N
         assert self.rnn_layer_num == 1, print('only support one rnn layer number')
 
         self.model_config=  model_config

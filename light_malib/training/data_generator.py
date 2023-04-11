@@ -78,7 +78,7 @@ def simple_team_data_generator(data, num_mini_batch, device, shuffle=False):
         {k: v.shape for k, v in data.items()}
     )
     len_traj, n_rollout_threads, n_agent, _ = data[EpisodeKey.CUR_OBS].shape
-    batch_size = len_traj * n_rollout_`threads  # * n_agent
+    batch_size = len_traj * n_rollout_threads  # * n_agent
 
     batch = {}
     for k in data:
