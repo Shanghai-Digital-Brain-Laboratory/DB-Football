@@ -86,6 +86,11 @@ def main():
     ), "batch_size({}) should be <= capacity({})".format(
         cfg.training_manager.batch_size, cfg.data_server.table_cfg.capacity
     )
+    # check sync_training
+    if cfg.framework.sync_training:
+        assert cfg.data_server.table_cfg.sample_max_usage==1
+        assert cfg.training_manager.batch_size==cfg.rollout_manager.batch_size
+        assert cfg.rollout_manager.worker.sample_length<=0
 
     timestamp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
     cfg.expr_log_dir = os.path.join(

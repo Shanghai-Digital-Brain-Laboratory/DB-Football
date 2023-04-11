@@ -23,8 +23,10 @@ from . import data_prefetcher
 import numpy as np
 from light_malib.utils.logger import Logger
 from light_malib.utils.timer import global_timer
+from light_malib.utils.naming import default_trainer_id
 import os
 import pickle
+import time
 
 
 class TrainingManager:
@@ -48,7 +50,7 @@ class TrainingManager:
 
         self.trainers = [
             DistributedTrainer.options(max_concurrency=10).remote(
-                id=self.default_trainer_id(idx),
+                id=default_trainer_id(idx),
                 local_rank=idx,
                 world_size=self.cfg.num_trainers,  # TODO(jh) check ray resouces if we have so many gpus.
                 master_addr=self.cfg.master_addr,
@@ -72,36 +74,15 @@ class TrainingManager:
         Logger.info("{} initialized".format(self.id))
 
         self.eq_dist_list = []
-
-    @staticmethod
-    def default_trainer_id(idx):
-        return "trainer_{}".format(idx)
-
-    def training_loop_stopped(self):
-        with self.stopped_flag_lock:
-            return self.stopped_flag
-
-    @limited_calls("semaphore")
+        
     def train(self, training_desc: TrainingDesc):
-        self.stop_flag = True
-        self.stop_flag_lock = threading.Lock()
-        self.stopped_flag = True
-        self.stopped_flag_lock = threading.Lock()
-
-        with self.stop_flag_lock:
-            assert self.stop_flag
-            self.stop_flag = False
-
-        with self.stopped_flag_lock:
-            self.stopped_flag = False
-
         # create table
-        table_name = default_table_name(
+        self.table_name = default_table_name(
             training_desc.agent_id,
             training_desc.policy_id,
             training_desc.share_policies,
         )
-        ray.get(self.data_server.create_table.remote(table_name))
+        ray.get(self.data_server.create_table.remote(self.table_name))
 
         # save distribution
         self.eq_dist_list.append(training_desc.policy_distributions)
@@ -110,7 +91,7 @@ class TrainingManager:
         with open(dump_path, "wb") as f:
             pickle.dump(self.eq_dist_list, f)
 
-        rollout_desc = RolloutDesc(
+        self.rollout_desc = RolloutDesc(
             training_desc.agent_id,
             training_desc.policy_id,
             training_desc.policy_distributions,
@@ -118,20 +99,45 @@ class TrainingManager:
             training_desc.sync,
             training_desc.stopper,
         )
-        rollout_task_ref = self.rollout_manger.rollout.remote(rollout_desc)
 
         training_desc.kwargs["cfg"] = self.cfg.trainer
         ray.get([trainer.reset.remote(training_desc) for trainer in self.trainers])
 
-        prefetching_desc = PrefetchingDesc(table_name, self.cfg.batch_size)
+        if self.cfg.gpu_preload:
+            ray.get([trainer.local_queue_init.remote() for trainer in self.trainers])
+        
+        self.training_loop=self.get_traininig_loop()
+        
+        # start rollout task
+        rollout_task_ref = self.rollout_manger.rollout.remote(self.rollout_desc)
+        
+        # wait for rollout task to completely stop
+        ray.get(rollout_task_ref)
+        
+        # remove table
+        ray.get(self.data_server.remove_table.remote(self.table_name))
+        
+        self.training_loop=None
+
+    def train_step(self):
+        stopped=next(self.training_loop)
+        return stopped
+    
+    def async_training_loop(self):
+        stopped=False
+        while not stopped:
+            stopped=self.train_step()
+        
+    def get_traininig_loop(self):  
+        self.stop_flag = False
+        self.stop_flag_lock = threading.Lock()
+              
+        prefetching_desc = PrefetchingDesc(self.table_name, self.cfg.batch_size)
         prefetching_descs = [prefetching_desc]
-        prefetching_task_refs = [
+        self.prefetching_task_refs = [
             prefetcher.prefetch.remote(prefetching_descs)
             for prefetcher in self.prefetchers
         ]
-
-        if self.cfg.gpu_preload:
-            ray.get([trainer.local_queue_init.remote() for trainer in self.trainers])
 
         training_steps = 0
         # training process
@@ -164,12 +170,12 @@ class TrainingManager:
             )
             timer_statistics.update(global_timer.elapses)
             data_server_statistics = ray.get(
-                self.data_server.get_statistics.remote(table_name)
+                self.data_server.get_statistics.remote(self.table_name)
             )
 
             # log
             main_tag = "Training/{}/{}/".format(
-                rollout_desc.agent_id, rollout_desc.policy_id
+                self.rollout_desc.agent_id, self.rollout_desc.policy_id
             )
             ray.get(
                 self.monitor.add_multiple_scalars.remote(
@@ -177,7 +183,7 @@ class TrainingManager:
                 )
             )
             main_tag = "TrainingTimer/{}/{}/".format(
-                rollout_desc.agent_id, rollout_desc.policy_id
+                self.rollout_desc.agent_id, self.rollout_desc.policy_id
             )
             ray.get(
                 self.monitor.add_multiple_scalars.remote(
@@ -185,7 +191,7 @@ class TrainingManager:
                 )
             )
             main_tag = "DataServer/{}/{}/".format(
-                rollout_desc.agent_id, rollout_desc.policy_id
+                self.rollout_desc.agent_id, self.rollout_desc.policy_id
             )
             ray.get(
                 self.monitor.add_multiple_scalars.remote(
@@ -194,32 +200,19 @@ class TrainingManager:
             )
 
             global_timer.clear()
-
-            if training_desc.sync:
-                ray.get(self.rollout_manger.sync_epoch.remote())
-
-        with self.stopped_flag_lock:
-            self.stopped_flag = True
+            
+            yield False
 
         # signal prefetchers to stop prefetching
         ray.get(
             [prefetcher.stop_prefetching.remote() for prefetcher in self.prefetchers]
         )
         # wait for prefetching tasks to completely stop
-        ray.get(prefetching_task_refs)
-
-        # signal rollout_manager to stop rollout
-        ray.get(self.rollout_manger.stop_rollout.remote())
-        if training_desc.sync:
-            ray.get(self.rollout_manger.sync_epoch.remote())
-
-        # wait for rollout task to completely stop
-        ray.get(rollout_task_ref)
-
-        # remove table
-        ray.get(self.data_server.remove_table.remote(table_name))
+        ray.get(self.prefetching_task_refs)
 
         Logger.warning("Training ends after {} steps".format(training_steps))
+ 
+        yield True
 
     def stop_training(self):
         with self.stop_flag_lock:

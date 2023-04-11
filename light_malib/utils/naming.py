@@ -18,5 +18,10 @@ def default_table_name(agent_id, policy_id, share_policies):
     else:
         return policy_id
 
+def default_rollout_worker_id(id):
+    return "rollout_worker_{}".format(id)
+
+def default_trainer_id(idx):
+    return "trainer_{}".format(idx)
 
 EXPERT_DATA_TABLE_NAME = "expert_data"

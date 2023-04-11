@@ -111,9 +111,13 @@ class SeqLeagueScheduler:
         Logger.warning("after initialization:\n{}".format(self.agents))
 
     def _gen_schedule(self):
-        max_generations = self.cfg.max_generations
-        for generation_ctr in range(max_generations):
+        max_rounds = self.cfg.max_rounds
+        num_rounds = 0
+        for generation_ctr in range(max_rounds):
             for training_agent_id in self.agents.training_agent_ids:
+                num_rounds += 1
+                if num_rounds > max_rounds:
+                    return
                 if (generation_ctr + self.start_phase_idx) % 2 == 0:
                     # training main agent
 

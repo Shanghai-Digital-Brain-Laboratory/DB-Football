@@ -29,7 +29,7 @@ from light_malib.utils.decorator import limited_calls
 import traceback
 from light_malib.utils.timer import global_timer
 from light_malib.utils.metric import Metrics
-
+from light_malib.utils.naming import default_rollout_worker_id
 
 class RolloutManager:
     def __init__(self, id, cfg, agents: Agents):
@@ -47,7 +47,7 @@ class RolloutManager:
         )
         self.rollout_workers = [
             RolloutWorker.remote(
-                self.default_rollout_worker_id(id),
+                default_rollout_worker_id(id),
                 (self.cfg.seed * 13 + id * 1000),
                 self.cfg.worker,
                 self.agents,
@@ -57,8 +57,6 @@ class RolloutManager:
 
         self.worker_pool = ray.util.ActorPool(self.rollout_workers)
 
-        self.stop_flag = True
-        self.stop_flag_lock = threading.Lock()
         # cannot start two rollout tasks
         self.semaphore = threading.Semaphore(value=1)
 
@@ -68,21 +66,169 @@ class RolloutManager:
         self.eval_batch_size = self.cfg.eval_batch_size
         self.eval_data_buffer_max_size = self.eval_batch_size * 2
 
-        self.min_samples = self.cfg.min_samples
-
         self.eval_freq = self.cfg.eval_freq
 
         self.rollout_epoch = 0
         self.rollout_epoch_lock = threading.Lock()
         Logger.info("{} initialized".format(self.id))
+                    
+    def rollout(self, rollout_desc: RolloutDesc):
+        
+        self.data_buffer = queue.Queue()
+        self.data_buffer_lock = threading.Lock()
+        self.data_buffer_ready = threading.Condition(self.data_buffer_lock)
+        self.eval_data_buffer = queue.Queue()
+        self.eval_data_buffer_lock = threading.Lock()
+        self.eval_data_buffer_ready = threading.Condition(self.eval_data_buffer_lock)
+        
+        self.rollout_desc=rollout_desc
+        self.expr_log_dir = ray.get(self.monitor.get_expr_log_dir.remote())
+        self.agent_id = rollout_desc.agent_id
+        self.policy_id = rollout_desc.policy_id
+        
+        if rollout_desc.sync:
+            self.sync_rollout(rollout_desc)
+        else:
+            self.async_rollout(rollout_desc)
+        
+        self.data_buffer = None
+        self.data_buffer_lock = None
+        self.data_buffer_ready = None
+        self.eval_data_buffer = None
+        self.eval_data_buffer_lock = None
+        self.eval_data_buffer_ready = None  
+        
+    def rollout_eval(self, rollout_eval_desc: RolloutEvalDesc):
+        policy_combinations = rollout_eval_desc.policy_combinations
+        num_eval_rollouts = rollout_eval_desc.num_eval_rollouts
+        # prepare rollout_desc
+        # agent_id & policy_id here is dummy
+        rollout_descs = [
+            RolloutDesc(
+                agent_id="agent_0",
+                policy_id=policy_combination["agent_0"],
+                policy_distributions=policy_combination,
+                share_policies=rollout_eval_desc.share_policies,
+                sync=False,
+                stopper=None,
+            )
+            for policy_combination in policy_combinations
+        ]
+        rollout_descs *= num_eval_rollouts
 
-    @staticmethod
-    def default_rollout_worker_id(id):
-        return "rollout_worker_{}".format(id)
+        rollout_results = self.worker_pool.map_unordered(
+            lambda worker, rollout_desc: worker.rollout.remote(rollout_desc, eval=True),
+            values=rollout_descs,
+        )
 
-    def sync_epoch(self):
-        self.sync_epoch_event.set()
+        # reduce
+        results = self.reduce_rollout_eval_results(rollout_results)
+        return results
+        
+    ##### Sync Rollout START #####        
+    
+    def sync_rollout(self, rollout_desc: RolloutDesc):
 
+        stopper = rollout_desc.stopper
+        # TODO use stopper
+        try:
+            with self.rollout_epoch_lock:
+                self.rollout_epoch = 0
+            best_reward = -np.inf
+            self.rollout_metrics = Metrics(self.cfg.rollout_metric_cfgs)
+            while True:
+                stopper_kwargs = {"step": self.rollout_epoch}
+                stopper_kwargs.update(self.rollout_metrics.get_means())
+                with self.rollout_epoch_lock:
+                    if stopper.stop(**stopper_kwargs):
+                        break
+                    self.rollout_epoch += 1
+                    rollout_epoch = self.rollout_epoch
+
+                Logger.info("Rollout {}".format(rollout_epoch))
+
+                global_timer.record("batch_start")
+                rollout_results = self.rollout_batch(
+                    self.batch_size,
+                    rollout_desc,
+                    eval=False,
+                    rollout_epoch=rollout_epoch,
+                )
+                results, timer_results = self.reduce_rollout_results(rollout_results)
+                
+                global_timer.time("batch_start", "batch_end", "batch")
+                timer_results.update(global_timer.elapses)
+                global_timer.clear()
+                
+                self.log_to_tensorboard(results,timer_results,rollout_epoch=rollout_epoch,main_tag="Rollout")
+
+                # save model periodically
+                if rollout_epoch % self.cfg.saving_interval == 0:
+                    self.save_current_model(f"epoch_{rollout_epoch}")
+
+                if rollout_desc.sync and rollout_epoch % self.eval_freq == 0:
+                    Logger.info(
+                        "Rollout Eval {} eval {} rollouts".format(
+                            rollout_epoch, self.eval_batch_size
+                        )
+                    )
+
+                    rollout_results = self.rollout_batch(
+                        self.eval_batch_size,
+                        rollout_desc,
+                        eval=True,
+                        rollout_epoch=rollout_epoch,
+                    )
+                    
+                    results, timer_results = self.reduce_rollout_results(rollout_results)
+                    self.log_to_tensorboard(results,timer_results,rollout_epoch=rollout_epoch,main_tag="RolloutEval")
+                
+                # TODO(jh): currently eval is not supported in async, so we use rollout stats instead
+                self.rollout_metrics.update(results)
+                # save best stable model
+                rollout_metrics_mean = self.rollout_metrics.get_means(
+                    metric_names=["reward", "win"]
+                )
+                reward = rollout_metrics_mean["reward"]
+                win = rollout_metrics_mean["win"]
+                if reward >= best_reward:
+                    Logger.warning(
+                        f"save the best model(average reward:{reward},average win:{win})"
+                    )
+                    best_reward = reward
+                    self.push_best_model_to_policy_server(rollout_epoch)
+                    
+                # training step: update the model    
+                ray.get(self.traning_manager.train_step.remote())
+                
+        except Exception as e:
+            # save model
+            self.save_current_model("exception")
+            self.save_best_model_from_policy_server()
+            Logger.error(traceback.format_exc())
+            raise e
+
+        Logger.warning(
+            f"save the last model(average reward:{reward},average win:{win})"
+        )
+        # save the last model
+        self.save_current_model("last")
+
+        # save the best model
+        best_policy_desc = self.pull_policy(self.agent_id, f"{self.policy_id}.best")
+        self.save_model(best_policy_desc.policy, self.agent_id, self.policy_id, "best")
+        # also push to remote to replace the last policy
+        best_policy_desc.policy_id = self.policy_id
+        best_policy_desc.version = float("inf")  # a version for freezing
+        ray.get(self.policy_server.push.remote(self.id, best_policy_desc))
+
+        # signal tranining_manager to stop training
+        ray.get(self.traning_manager.stop_training.remote())
+        # call the last step to clean up things
+        ray.get(self.traning_manager.train_step.remote())
+
+        Logger.warning("Rollout ends after {} epochs".format(self.rollout_epoch))
+        
     def rollout_batch(self, batch_size, rollout_desc: RolloutDesc, eval, rollout_epoch):
         rollout_descs = [
             RolloutDesc(
@@ -102,16 +248,111 @@ class RolloutManager:
         )
         return rollout_results
 
-    def _rollout_loop(self, rollout_desc: RolloutDesc):
-        with self.stop_flag_lock:
-            assert self.stop_flag
-            self.stop_flag = False
+    ##### Sync Rollout END #####    
+    
+    ##### Async Rollout START #####
+    
+    def async_rollout(self, rollout_desc: RolloutDesc):
+
+        # only used for async
+        _async_rollout_loop_thread = threading.Thread(
+            target=self._async_rollout_loop, args=(rollout_desc,)
+        )
+        _async_rollout_loop_thread.start()
+
+        _async_training_loop = self.traning_manager.async_training_loop.remote()
+
+        stopper = rollout_desc.stopper
+
+        # TODO use stopper
+        try:
+            with self.rollout_epoch_lock:
+                self.rollout_epoch = 0
+            best_reward = -np.inf
+            self.rollout_metrics = Metrics(self.cfg.rollout_metric_cfgs)
+            while True:
+                # TODO(jh): ...
+                stopper_kwargs = {"step": self.rollout_epoch}
+                stopper_kwargs.update(self.rollout_metrics.get_means())
+                with self.rollout_epoch_lock:
+                    if stopper.stop(**stopper_kwargs):
+                        break
+                    self.rollout_epoch += 1
+                    rollout_epoch = self.rollout_epoch
+
+                Logger.info("Rollout {}".format(rollout_epoch))
+
+                global_timer.record("batch_start")
+                results, timer_results = self.get_batch(
+                    self.data_buffer,
+                    self.data_buffer_lock,
+                    self.data_buffer_ready,
+                    self.batch_size,
+                )
+                global_timer.time("batch_start", "batch_end", "batch")
+                timer_results.update(global_timer.elapses)
+                global_timer.clear()
+
+                self.log_to_tensorboard(results,timer_results,rollout_epoch,main_tag="Rollout")
+
+                # save model periodically
+                if rollout_epoch % self.cfg.saving_interval == 0:
+                    self.save_current_model(f"epoch_{rollout_epoch}")
+                
+                # TODO(jh): currently eval is not supported in async, so we use rollout stats instead
+                self.rollout_metrics.update(results)
+
+                # save best stable model
+                rollout_metrics_mean = self.rollout_metrics.get_means(
+                    metric_names=["reward", "win"]
+                )
+                reward = rollout_metrics_mean["reward"]
+                win = rollout_metrics_mean["win"]
+                if reward >= best_reward:
+                    Logger.warning(
+                        f"save the best model(average reward:{reward},average win:{win})"
+                    )
+                    best_reward = reward
+                    self.push_best_model_to_policy_server(rollout_epoch)
+
+        except Exception as e:
+            # save model
+            self.save_current_model("exception")
+            self.save_best_model_from_policy_server()
+            Logger.error(traceback.format_exc())
+            raise e
+
+        Logger.warning(
+            f"save the last model(average reward:{reward},average win:{win})"
+        )
+        # save the last model
+        self.save_current_model("last")
+
+        # save the best model
+        best_policy_desc = self.pull_policy(self.agent_id, f"{self.policy_id}.best")
+        self.save_model(best_policy_desc.policy, self.agent_id, self.policy_id, "best")
+        # also push to remote to replace the last policy
+        best_policy_desc.policy_id = self.policy_id
+        best_policy_desc.version = float("inf")  # a version for freezing
+        ray.get(self.policy_server.push.remote(self.id, best_policy_desc))
+
+        # signal tranining_manager to stop training
+        ray.get(self.traning_manager.stop_training.remote())
+        # we have to wait for training loop to stop first in case that it may still need data.
+        ray.get(_async_training_loop)
+        
+        # stop rollout loop
+        self.stop_async_rollout()
+        _async_rollout_loop_thread.join()
+
+        Logger.warning("Rollout ends after {} epochs".format(self.rollout_epoch))
+        
+    def _async_rollout_loop(self, rollout_desc: RolloutDesc):
+        self.stop_flag = False
+        self.stop_flag_lock = threading.Lock()
 
         with self.rollout_epoch_lock:
             rollout_epoch = self.rollout_epoch
-
-        if rollout_desc.sync:
-            return
 
         # TODO(jh): currently async rollout doesn't support evaluation
         submit_ctr = 0
@@ -152,226 +393,30 @@ class RolloutManager:
             else:
                 break
 
-        self.data_buffer = None
-        self.data_buffer_lock = None
-        self.data_buffer_ready = None
-
-    def stop_rollout(self):
+    def stop_async_rollout(self):
         with self.stop_flag_lock:
             self.stop_flag = True
-
-    @limited_calls("semaphore")
-    def rollout(self, rollout_desc: RolloutDesc):
-        self.data_buffer = queue.Queue()
-        self.data_buffer_lock = threading.Lock()
-        self.data_buffer_ready = threading.Condition(self.data_buffer_lock)
-        if rollout_desc.sync:
-            self.eval_data_buffer = queue.Queue()
-            self.eval_data_buffer_lock = threading.Lock()
-            self.eval_data_buffer_ready = threading.Condition(
-                self.eval_data_buffer_lock
-            )
-            self.sync_epoch_event = threading.Event()
-
-        with self.rollout_epoch_lock:
-            self.rollout_epoch = 0
-
-        self.expr_log_dir = ray.get(self.monitor.get_expr_log_dir.remote())
-        self.agent_id = rollout_desc.agent_id
-        self.policy_id = rollout_desc.policy_id
-
-        # only used for async
-        self._rollout_loop_thread = threading.Thread(
-            target=self._rollout_loop, args=(rollout_desc,)
+            
+    ##### Async Rollout END #####
+    
+    def log_to_tensorboard(self, results, timer_results, rollout_epoch, main_tag="Rollout"):
+        # log to tensorboard, etc...
+        tag = "{}/{}/{}/".format(
+            main_tag, self.rollout_desc.agent_id, self.rollout_desc.policy_id
         )
-        self._rollout_loop_thread.start()
-
-        stopper = rollout_desc.stopper
-
-        # TODO use stopper
-        try:
-            best_reward = -np.inf
-            self.rollout_metrics = Metrics(self.cfg.rollout_metric_cfgs)
-            while True:
-                # TODO(jh): ...
-                stopper_kwargs = {"step": self.rollout_epoch}
-                stopper_kwargs.update(self.rollout_metrics.get_means())
-                with self.rollout_epoch_lock:
-                    if stopper.stop(**stopper_kwargs):
-                        break
-                    self.rollout_epoch += 1
-                    rollout_epoch = self.rollout_epoch
-
-                Logger.info("Rollout {}".format(rollout_epoch))
-
-                global_timer.record("batch_start")
-                if rollout_desc.sync:
-                    self.sync_epoch_event.clear()
-                    rollout_results = self.rollout_batch(
-                        self.batch_size,
-                        rollout_desc,
-                        eval=False,
-                        rollout_epoch=rollout_epoch,
-                    )
-                    self.put_batch(
-                        self.data_buffer,
-                        self.data_buffer_lock,
-                        self.data_buffer_ready,
-                        self.batch_size,
-                        self.data_buffer_max_size,
-                        rollout_results,
-                    )
-                results, timer_results = self.get_batch(
-                    self.data_buffer,
-                    self.data_buffer_lock,
-                    self.data_buffer_ready,
-                    self.batch_size,
-                )
-                global_timer.time("batch_start", "batch_end", "batch")
-                timer_results.update(global_timer.elapses)
-                global_timer.clear()
-
-                # log to tensorboard, etc...
-                main_tag = "Rollout/{}/{}/".format(
-                    rollout_desc.agent_id, rollout_desc.policy_id
-                )
-                ray.get(
-                    self.monitor.add_multiple_scalars.remote(
-                        main_tag, results, global_step=rollout_epoch
-                    )
-                )
-                main_tag = "RolloutTimer/{}/{}/".format(
-                    rollout_desc.agent_id, rollout_desc.policy_id
-                )
-                ray.get(
-                    self.monitor.add_multiple_scalars.remote(
-                        main_tag, timer_results, global_step=rollout_epoch
-                    )
-                )
-
-                # save model periodically
-                if rollout_epoch % self.cfg.saving_interval == 0:
-                    self.save_current_model(f"epoch_{rollout_epoch}")
-
-                if rollout_desc.sync and rollout_epoch % self.eval_freq == 0:
-                    Logger.info(
-                        "Rollout Eval {} eval {} rollouts".format(
-                            rollout_epoch, self.eval_batch_size
-                        )
-                    )
-
-                    rollout_results = self.rollout_batch(
-                        self.eval_batch_size,
-                        rollout_desc,
-                        eval=True,
-                        rollout_epoch=rollout_epoch,
-                    )
-                    self.put_batch(
-                        self.eval_data_buffer,
-                        self.eval_data_buffer_lock,
-                        self.eval_data_buffer_ready,
-                        self.eval_batch_size,
-                        self.eval_data_buffer_max_size,
-                        rollout_results,
-                    )
-                    results, timer_results = self.get_batch(
-                        self.eval_data_buffer,
-                        self.eval_data_buffer_lock,
-                        self.eval_data_buffer_ready,
-                        self.eval_batch_size,
-                    )
-
-                    # log to tensorboard, etc...
-                    main_tag = "RolloutEval/{}/{}/".format(
-                        rollout_desc.agent_id, rollout_desc.policy_id
-                    )
-                    ray.get(
-                        self.monitor.add_multiple_scalars.remote(
-                            main_tag, results, global_step=rollout_epoch
-                        )
-                    )
-                    main_tag = "RolloutEvalTimer/{}/{}/".format(
-                        rollout_desc.agent_id, rollout_desc.policy_id
-                    )
-                    ray.get(
-                        self.monitor.add_multiple_scalars.remote(
-                            main_tag, timer_results, global_step=rollout_epoch
-                        )
-                    )
-
-                    # TODO(jh): track some important stats within a window
-                    self.rollout_metrics.update(results)
-
-                if not rollout_desc.sync:
-                    # TODO(jh): currently eval is not supported in async, so we use rollout stats instead
-                    self.rollout_metrics.update(results)
-
-                # save best stable model
-                rollout_metrics_mean = self.rollout_metrics.get_means(
-                    metric_names=["reward", "win"]
-                )
-                reward = rollout_metrics_mean["reward"]
-                win = rollout_metrics_mean["win"]
-                if reward >= best_reward:
-                    Logger.warning(
-                        f"save the best model(average reward:{reward},average win:{win})"
-                    )
-                    best_reward = reward
-                    policy_desc = self.pull_policy(self.agent_id, self.policy_id)
-                    best_policy_desc = PolicyDesc(
-                        self.agent_id,
-                        f"{self.policy_id}.best",
-                        policy_desc.policy,
-                        version=rollout_epoch,
-                    )
-                    ray.get(self.policy_server.push.remote(self.id, best_policy_desc))
-
-                if (
-                    rollout_desc.sync
-                    and rollout_epoch * self.batch_size >= self.min_samples
-                ):
-                    self.sync_epoch_event.wait()
-
-        except Exception as e:
-            # save model
-            self.save_current_model("exception")
-            Logger.error(traceback.format_exc())
-            raise e
-
-        Logger.warning(
-            f"save the last model(average reward:{reward},average win:{win})"
-        )
-        # save the last model
-        self.save_current_model("last")
-
-        # save the best model
-        best_policy_desc = self.pull_policy(self.agent_id, f"{self.policy_id}.best")
-        self.save_model(best_policy_desc.policy, self.agent_id, self.policy_id, "best")
-        # also push to remote to replace the last policy
-        best_policy_desc.policy_id = self.policy_id
-        best_policy_desc.version = float("inf")  # a version for freezing
-        ray.get(self.policy_server.push.remote(self.id, best_policy_desc))
-
-        # signal tranining_manager to stop training
-        ray.get(self.traning_manager.stop_training.remote())
-
-        # training_manager will stop rollout loop, wait here
-        self._rollout_loop_thread.join()
-
-        # softly wait for training loop ends
-        training_loop_stopped = ray.get(
-            self.traning_manager.training_loop_stopped.remote()
-        )
-        while not training_loop_stopped:
-            rollout_results = self.rollout_batch(
-                self.batch_size, rollout_desc, eval=False, rollout_epoch=rollout_epoch
+        ray.get(
+            self.monitor.add_multiple_scalars.remote(
+                tag, results, global_step=rollout_epoch
             )
-            list(rollout_results)
-            training_loop_stopped = ray.get(
-                self.traning_manager.training_loop_stopped.remote()
+        )
+        tag = "{}Timer/{}/{}/".format(
+            main_tag, self.rollout_desc.agent_id, self.rollout_desc.policy_id
+        )
+        ray.get(
+            self.monitor.add_multiple_scalars.remote(
+                tag, timer_results, global_step=rollout_epoch
             )
-
-        Logger.warning("Rollout ends after {} epochs".format(self.rollout_epoch))
+        )  
 
     def pull_policy(self, agent_id, policy_id):
         if policy_id not in self.agents[agent_id].policy_data:
@@ -411,35 +456,21 @@ class RolloutManager:
             "Saving model {} {} {} to {}".format(agent_id, policy_id, name, dump_dir)
         )
         return policy
-
-    @limited_calls("semaphore")
-    def rollout_eval(self, rollout_eval_desc: RolloutEvalDesc):
-        policy_combinations = rollout_eval_desc.policy_combinations
-        num_eval_rollouts = rollout_eval_desc.num_eval_rollouts
-        # prepare rollout_desc
-        # agent_id & policy_id here is dummy
-        rollout_descs = [
-            RolloutDesc(
-                agent_id="agent_0",
-                policy_id=policy_combination["agent_0"],
-                policy_distributions=policy_combination,
-                share_policies=rollout_eval_desc.share_policies,
-                sync=False,
-                stopper=None,
-            )
-            for policy_combination in policy_combinations
-        ]
-        rollout_descs *= num_eval_rollouts
-
-        rollout_results = self.worker_pool.map_unordered(
-            lambda worker, rollout_desc: worker.rollout.remote(rollout_desc, eval=True),
-            values=rollout_descs,
+    
+    def push_best_model_to_policy_server(self,rollout_epoch):
+        policy_desc = self.pull_policy(self.agent_id, self.policy_id)
+        best_policy_desc = PolicyDesc(
+            self.agent_id,
+            f"{self.policy_id}.best",
+            policy_desc.policy,
+            version=rollout_epoch,
         )
-
-        # reduce
-        results = self.reduce_rollout_eval_results(rollout_results)
-        return results
-
+        ray.get(self.policy_server.push.remote(self.id, best_policy_desc))
+        
+    def save_best_model_from_policy_server(self):
+        best_policy_desc = self.pull_policy(self.agent_id, f"{self.policy_id}.best")
+        self.save_model(best_policy_desc.policy, self.agent_id, self.policy_id, "best")
+        
     def get_batch(
         self,
         data_buffer: queue.Queue,
@@ -527,18 +558,4 @@ class RolloutManager:
         return results
 
     def close(self):
-        if not self.stop_flag:
-            try:
-                self.save_current_model("{}".format(self.rollout_epoch))
-
-                # also save the best model
-                best_policy_desc = self.pull_policy(
-                    self.agent_id, f"{self.policy_id}.best"
-                )
-                self.save_model(
-                    best_policy_desc.policy, self.agent_id, self.policy_id, "best"
-                )
-            except Exception:
-                import traceback
-
-                Logger.error("{}".format(traceback.format_exc()))
+        pass

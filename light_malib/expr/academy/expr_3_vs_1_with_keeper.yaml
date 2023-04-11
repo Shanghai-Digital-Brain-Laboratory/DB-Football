@@ -16,7 +16,7 @@ distributed:
 
 framework:
   name: "psro"                #framework name
-  max_generations: 1         #psro rounds
+  max_rounds: 1         #psro rounds
   meta_solver: "nash"         #'nash', 'uniform', 'pfsp'
   sync_training: False
   stopper:
@@ -73,7 +73,6 @@ rollout_manager:
   batch_size: ${rollout_manager.num_workers}
   eval_batch_size: 100
   eval_freq: 50 # epochs
-  min_samples: ${training_manager.batch_size}
   rollout_metric_cfgs:
     reward:
       type: "sliding"
@@ -171,7 +170,7 @@ data_server:
     rate_limiter_cfg:
       min_size: ${training_manager.batch_size}
       # r_w_ratio: 10.0
-  read_timeout: 120
+  read_timeout: 1
 
 policy_server:
   distributed:
