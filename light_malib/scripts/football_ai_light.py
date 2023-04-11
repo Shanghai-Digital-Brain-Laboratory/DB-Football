@@ -89,7 +89,7 @@ class Player(player_base.PlayerBase):
         }
 
         policy_input = to_tensor(policy_input, device=self.device)
-        rets = self._policy.compute_action(**policy_input)
+        rets = self._policy.compute_action(**policy_input,explore=False)
 
         actions = rets[EpisodeKey.ACTION]
 

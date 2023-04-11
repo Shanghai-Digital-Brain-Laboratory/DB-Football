@@ -166,7 +166,7 @@ class RolloutManager:
                 if rollout_epoch % self.cfg.saving_interval == 0:
                     self.save_current_model(f"epoch_{rollout_epoch}")
 
-                if rollout_desc.sync and rollout_epoch % self.eval_freq == 0:
+                if rollout_epoch % self.eval_freq == 0:
                     Logger.info(
                         "Rollout Eval {} eval {} rollouts".format(
                             rollout_epoch, self.eval_batch_size
@@ -215,8 +215,7 @@ class RolloutManager:
         self.save_current_model("last")
 
         # save the best model
-        best_policy_desc = self.pull_policy(self.agent_id, f"{self.policy_id}.best")
-        self.save_model(best_policy_desc.policy, self.agent_id, self.policy_id, "best")
+        best_policy_desc = self.save_best_model_from_policy_server()
         # also push to remote to replace the last policy
         best_policy_desc.policy_id = self.policy_id
         best_policy_desc.version = float("inf")  # a version for freezing
@@ -329,8 +328,7 @@ class RolloutManager:
         self.save_current_model("last")
 
         # save the best model
-        best_policy_desc = self.pull_policy(self.agent_id, f"{self.policy_id}.best")
-        self.save_model(best_policy_desc.policy, self.agent_id, self.policy_id, "best")
+        best_policy_desc = self.save_best_model_from_policy_server()
         # also push to remote to replace the last policy
         best_policy_desc.policy_id = self.policy_id
         best_policy_desc.version = float("inf")  # a version for freezing
@@ -348,6 +346,9 @@ class RolloutManager:
         Logger.warning("Rollout ends after {} epochs".format(self.rollout_epoch))
         
     def _async_rollout_loop(self, rollout_desc: RolloutDesc):
+        '''
+        TODO(jh): just merge this loop into the main async call.
+        '''
         self.stop_flag = False
         self.stop_flag_lock = threading.Lock()
 
@@ -356,9 +357,13 @@ class RolloutManager:
 
         # TODO(jh): currently async rollout doesn't support evaluation
         submit_ctr = 0
+        recieve_ctr = 0
+        eval_submit_ctr=0   
+        eval=False
+
         for _ in range(self.cfg.num_workers):
             self.worker_pool.submit(
-                lambda worker, v: worker.rollout.remote(rollout_desc, rollout_epoch),
+                lambda worker, v: worker.rollout.remote(rollout_desc, eval=eval, rollout_epoch=rollout_epoch),
                 value=None,
             )
             submit_ctr += 1
@@ -367,24 +372,63 @@ class RolloutManager:
             with self.stop_flag_lock:
                 if self.stop_flag:
                     break
+            
             # wait for a rollout to be complete
             result = self.worker_pool.get_next_unordered()
+            recieve_ctr += 1              
+
             # start a new task for this available process
             with self.rollout_epoch_lock:
-                rollout_epoch = self.rollout_epoch
+                rollout_epoch = self.rollout_epoch  
+
+            if submit_ctr%(self.eval_freq*self.batch_size)==0:
+                if eval_submit_ctr==0:
+                    eval_rollout_epoch=rollout_epoch
+                    Logger.info(
+                        "Rollout Eval {}: eval {} rollouts".format(
+                            eval_rollout_epoch, self.eval_batch_size
+                        )
+                    )
+                    eval=True   
+                elif eval_submit_ctr==self.eval_batch_size:
+                    eval_submit_ctr=0
+                    eval=False          
+                
             self.worker_pool.submit(
                 lambda worker, v: worker.rollout.remote(
-                    rollout_desc, eval=False, rollout_epoch=rollout_epoch
+                    rollout_desc, eval=eval, rollout_epoch=rollout_epoch
                 ),
                 value=None,
             )
-            submit_ctr += 1
-            with self.data_buffer_lock:
-                self.data_buffer.put_nowait(result)
-                while self.data_buffer.qsize() > self.data_buffer_max_size:
-                    self.data_buffer.get_nowait()
-                if self.data_buffer.qsize() >= self.batch_size:
-                    self.data_buffer_ready.notify()
+            
+            if eval:
+                eval_submit_ctr += 1
+            else:
+                submit_ctr += 1
+            
+            if result["eval"]:                
+                with self.eval_data_buffer_lock:
+                    self.eval_data_buffer.put_nowait(result)
+                    while self.eval_data_buffer.qsize() > self.eval_data_buffer_max_size:
+                        self.eval_data_buffer.get_nowait()
+                    if self.eval_data_buffer.qsize() >= self.eval_batch_size:
+                        rollout_results = [
+                            self.eval_data_buffer.get_nowait() for i in range(self.eval_batch_size)
+                        ]
+                        results, timer_results =self.reduce_rollout_results(rollout_results)
+                        Logger.info(
+                            "Rollout Eval {}: average reward: {}, average win: {}".format(
+                                eval_rollout_epoch, results["reward"], results["win"] 
+                            )
+                        )
+                        self.log_to_tensorboard(results,timer_results,rollout_epoch=eval_rollout_epoch,main_tag="RolloutEval")       
+            else:
+                with self.data_buffer_lock:
+                    self.data_buffer.put_nowait(result)
+                    while self.data_buffer.qsize() > self.data_buffer_max_size:
+                        self.data_buffer.get_nowait()
+                    if self.data_buffer.qsize() >= self.batch_size:
+                        self.data_buffer_ready.notify()
 
         # FIXME(jh) we have to wait all tasks to terminate? any better way?
         while True:
@@ -470,6 +514,7 @@ class RolloutManager:
     def save_best_model_from_policy_server(self):
         best_policy_desc = self.pull_policy(self.agent_id, f"{self.policy_id}.best")
         self.save_model(best_policy_desc.policy, self.agent_id, self.policy_id, "best")
+        return best_policy_desc
         
     def get_batch(
         self,
@@ -489,8 +534,8 @@ class RolloutManager:
                     break
 
         # reduce
-        results = self.reduce_rollout_results(rollout_results)
-        return results
+        results, timer_results  = self.reduce_rollout_results(rollout_results)
+        return results, timer_results
 
     def put_batch(
         self,

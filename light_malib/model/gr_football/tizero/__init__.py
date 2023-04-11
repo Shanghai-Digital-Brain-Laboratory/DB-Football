@@ -54,7 +54,7 @@ class Actor(nn.Module):
     def forward(self, observation, rnn_states, rnn_masks):
         raise NotImplementedError
 
-    def compute_action(self, obs, rnn_states, rnn_masks, action_masks):
+    def compute_action(self, obs, rnn_states, rnn_masks, action_masks, explore):
 
         # encoded_obs = obs[...,19:]
         # avail_actions = np.zeros((obs.shape[0], 20))
@@ -75,7 +75,7 @@ class Actor(nn.Module):
             avail_actions = np.concatenate(avail_actions.reshape([1, 1, 20]))
             rnn_hidden_state = np.concatenate(self.rnn_hidden_state[i+1])
             with torch.no_grad():
-                actions, rnn_hidden_state = self.model(encoded_obs, rnn_hidden_state, available_actions=avail_actions, deterministic=True)
+                actions, rnn_hidden_state = self.model(encoded_obs, rnn_hidden_state, available_actions=avail_actions, deterministic=not explore)
             if actions[0][0] == 17 and each_obs["sticky_actions"][8] == 1:
                 actions[0][0] = 15
             self.rnn_hidden_state[i+1] = np.array(np.split(_t2n(rnn_hidden_state), 1))

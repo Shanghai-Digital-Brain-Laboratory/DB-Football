@@ -90,6 +90,7 @@ class RolloutWorker:
         global_timer.time("policy_update_end", "rollout_end", "rollout")
 
         results["timer"] = copy.deepcopy(global_timer.elapses)
+        results["eval"] = eval
         global_timer.clear()
 
         return results

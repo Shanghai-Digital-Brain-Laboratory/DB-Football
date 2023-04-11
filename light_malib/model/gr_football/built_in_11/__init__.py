@@ -45,7 +45,7 @@ class Actor(nn.Module):
     def forward(self, observation, rnn_states, rnn_masks):
         raise NotImplementedError
 
-    def compute_action(self, observation, rnn_states, rnn_masks, action_masks):
+    def compute_action(self, observation, rnn_states, rnn_masks, action_masks, explore):
         observation = check_tensor(observation)
         rnn_states = check_tensor(rnn_states)
 
