@@ -85,6 +85,8 @@ class RolloutManager:
         self.expr_log_dir = ray.get(self.monitor.get_expr_log_dir.remote())
         self.agent_id = rollout_desc.agent_id
         self.policy_id = rollout_desc.policy_id
+        self.stop_flag = False
+        self.stop_flag_lock = threading.Lock()
         
         if rollout_desc.sync:
             self.sync_rollout(rollout_desc)
@@ -208,7 +210,7 @@ class RolloutManager:
                 
         except Exception as e:
             # save model
-            self.save_current_model("exception")
+            self.save_current_model("{}.exception".format(rollout_epoch))
             self.save_best_model_from_policy_server()
             Logger.error(traceback.format_exc())
             raise e
@@ -217,7 +219,9 @@ class RolloutManager:
             f"save the last model(average reward:{reward},average win:{win})"
         )
         # save the last model
-        self.save_current_model("last")
+        self.save_current_model("{}.last".format(rollout_epoch))
+        
+        self.stop_rollout()
 
         # save the best model
         best_policy_desc = self.save_best_model_from_policy_server()
@@ -321,7 +325,7 @@ class RolloutManager:
 
         except Exception as e:
             # save model
-            self.save_current_model("exception")
+            self.save_current_model("{}.exception".format(rollout_epoch))
             self.save_best_model_from_policy_server()
             Logger.error(traceback.format_exc())
             raise e
@@ -330,7 +334,7 @@ class RolloutManager:
             f"save the last model(average reward:{reward},average win:{win})"
         )
         # save the last model
-        self.save_current_model("last")
+        self.save_current_model("{}.last".format(rollout_epoch))
 
         # save the best model
         best_policy_desc = self.save_best_model_from_policy_server()
@@ -354,9 +358,6 @@ class RolloutManager:
         '''
         TODO(jh): just merge this loop into the main async call.
         '''
-        self.stop_flag = False
-        self.stop_flag_lock = threading.Lock()
-
         with self.rollout_epoch_lock:
             rollout_epoch = self.rollout_epoch
 
@@ -442,7 +443,7 @@ class RolloutManager:
             else:
                 break
 
-    def stop_async_rollout(self):
+    def stop_rollout(self):
         with self.stop_flag_lock:
             self.stop_flag = True
             
@@ -613,4 +614,12 @@ class RolloutManager:
         return results
 
     def close(self):
-        pass
+        if not self.stop_flag:
+            try:
+                self.save_current_model("{}.exception".format(self.rollout_epoch))
+                # also save the best model
+                self.save_best_model_from_policy_server()
+            except Exception:
+                import traceback
+
+                Logger.error("{}".format(traceback.format_exc()))

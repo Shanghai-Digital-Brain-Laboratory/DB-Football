@@ -58,7 +58,7 @@ env = GRFootballEnv(0, None, cfg.rollout_manager.worker.envs[0])
 rollout_desc = RolloutDesc("agent_0", None, None, None, None, None)
 
 total_run = args.total_run
-total_win = 0
+total_win = []
 offset = np.random.randint(0, 2)
 for idx in range(total_run):
     if cfg.agent_manager.share_policies:
@@ -94,6 +94,7 @@ for idx in range(total_run):
         rollout_length=cfg.rollout_manager.worker.eval_rollout_length,
         render=False,
     )
-    Logger.info("stats of model_0 is {}".format(rollout_results["stats"][agent]))
-    total_win += rollout_results["stats"][agent]["win"]
-Logger.warning("win rate of model_0 is {}".format(total_win / total_run))
+    for rollout_result in rollout_results["results"]:
+        Logger.info("stats of model_0 is {}".format(rollout_result["stats"][agent]))
+        total_win.append(rollout_result["stats"][agent]["win"])
+Logger.warning("win rate of model_0 is {}".format(np.mean(total_win)))
