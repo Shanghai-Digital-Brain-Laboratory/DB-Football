@@ -71,6 +71,9 @@ class RolloutManager:
         self.rollout_epoch = 0
         self.rollout_epoch_lock = threading.Lock()
         Logger.info("{} initialized".format(self.id))
+        
+        self.stop_flag = True
+        self.stop_flag_lock = threading.Lock()
                     
     def rollout(self, rollout_desc: RolloutDesc):
         
@@ -322,6 +325,8 @@ class RolloutManager:
                     )
                     best_reward = reward
                     self.push_best_model_to_policy_server(rollout_epoch)
+                    
+                self.check_error([_async_training_loop])
 
         except Exception as e:
             # save model
@@ -442,6 +447,11 @@ class RolloutManager:
                 self.worker_pool.get_next_unordered()
             else:
                 break
+            
+    def check_error(self, task_refs):
+        ready_refs, _ = ray.wait(task_refs,timeout=0)
+        if len(ready_refs) > 0:
+            ray.get(ready_refs)
 
     def stop_rollout(self):
         with self.stop_flag_lock:
