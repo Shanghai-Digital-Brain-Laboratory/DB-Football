@@ -127,8 +127,8 @@ class QMIXLoss(LossFunc):
         for t in range(traj_length):            # if use rnn
             if not isinstance(policy.critic, list):
                 obs_t = observations[:, t, ...]     #[bz, num_agents, _]
-                qt = policy.critic(obs_t, torch.ones(1,1,1).to(obs_t.device))
-                qt_target = policy.target_critic(obs_t, torch.ones(1,1,1).to(obs_t.device))
+                qt, _= policy.critic(obs_t, torch.ones(1,1,1).to(obs_t.device))
+                qt_target, _ = policy.target_critic(obs_t, torch.ones(1,1,1).to(obs_t.device))
             else:
                 qt = []
                 qt_target = []

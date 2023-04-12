@@ -255,7 +255,8 @@ class QMix(nn.Module):
             input_batch = obs_batch
 
         if self.n_agent==1:
-            q_batch,new_rnn_states = self.critic(input_batch, rnn_states)
+            q_batch,new_rnn_states = self.critic(input_batch, rnn_states)       #TODO: check input-batch shape and new_rnn_states shape
+            new_rnn_states = new_rnn_states.unsqueeze(0)
         else:
             q_batch, new_rnn_states = [], []
             for i in range(self.n_agent):
