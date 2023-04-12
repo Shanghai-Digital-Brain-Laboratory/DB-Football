@@ -115,9 +115,9 @@ class QMix(nn.Module):
         self.registered_name = registered_name
 
         self.encoder = FeatureEncoder()
-        observation_space = self.feature_encoder.observation_space
-        self.obs_dim = observation_space.shape[0]
-        action_space = Discrete(19)
+        self.observation_space = self.feature_encoder.observation_space
+        self.obs_dim = self.observation_space.shape[0]
+        self.action_space = Discrete(19)
         self.act_dim = 19 #action_space.n
         self.output_dim = sum(self.act_dim) if isinstance(self.act_dim, np.ndarray) else self.act_dim
         self.hidden_size = 128
@@ -226,10 +226,10 @@ class QMix(nn.Module):
 
         return {
             EpisodeKey.ACTOR_RNN_STATE: np.zeros(
-                (self.n_agent, self.rnn_layer_num, self.hidden_size)
+                (self.rnn_layer_num, batch_size, self.hidden_size), dtype=np.float32
             ),
             EpisodeKey.CRITIC_RNN_STATE: np.zeros(
-                (self.n_agent, self.rnn_layer_num, self.hidden_size)
+                (self.rnn_layer_num, batch_size, self.hidden_size), dtype=np.float32
             ),
         }
 
@@ -255,6 +255,7 @@ class QMix(nn.Module):
             input_batch = obs_batch
 
         if self.n_agent==1:
+            # rnn_states = np.swapaxes(rnn_states, 0,1)
             q_batch,new_rnn_states = self.critic(input_batch, rnn_states)       #TODO: check input-batch shape and new_rnn_states shape
             new_rnn_states = new_rnn_states.unsqueeze(0)
         else:
@@ -434,6 +435,7 @@ class QMix(nn.Module):
     #     return self.critic.parameters()
 
     def dump(self, dump_dir):
+        os.makedirs(dump_dir, exist_ok=True)
         if self.n_agent==1:
             torch.save(self.critic.state_dict(), os.path.join(dump_dir, "critic_state_dict.pt"))
         else:
