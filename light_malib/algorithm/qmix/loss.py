@@ -28,7 +28,7 @@ class QMIXLoss(LossFunc):
         self._mixer = None
         self._mixer_target = None
         self._params = {"gamma": 0.99, "lr": 5e-4, "tau": 0.01,
-                        "custom_caster": None, "device": "cpu"}
+                        "custom_caster": None, "device": "cpu", "target_update_freq": 5}
 
     @property
     def mixer(self):
@@ -102,98 +102,97 @@ class QMIXLoss(LossFunc):
 
         (
             state,
-            next_state,
             observations,
             action_masks,
             actions,
             rewards,
             dones,
-            next_observations,
-            next_action_masks
         ) = (
             sample[EpisodeKey.GLOBAL_STATE],
-            sample[EpisodeKey.NEXT_GLOBAL_STATE],
             sample[EpisodeKey.CUR_OBS],
             sample[EpisodeKey.ACTION_MASK],
             sample[EpisodeKey.ACTION].long(),
             sample[EpisodeKey.REWARD],
             sample[EpisodeKey.DONE],
-            sample[EpisodeKey.NEXT_OBS],
-            sample[EpisodeKey.NEXT_ACTION_MASK]
         )
-            #[batch_size, num_agents, feat_dim]
 
-        # ================= handle for each agent ====================================
-        q_vals, next_max_q_vals = [], []
-        for agent_idx in range(observations.shape[1]):
-            _obs = observations[:,agent_idx, ...]
-            _next_obs = next_observations[:, agent_idx, ...]
-            _act = actions[:, agent_idx, ...]
-            _next_action_mask = next_action_masks[:, agent_idx, ...]
+        actions = actions.unsqueeze(-1)
+
+
+            #[batch_size, traj_length, num_agents, feat_dim]
+        bz, traj_length, num_agnets, _ = observations.shape
+        # Calculate estimated Q-values
+        mac_out = []
+        target_mac_out = []
+        for t in range(traj_length):            # if use rnn
             if not isinstance(policy.critic, list):
-                _q, _ = policy.critic(_obs, torch.ones(1,1,1).to(_obs.device))
+                obs_t = observations[:, t, ...]     #[bz, num_agents, _]
+                qt = policy.critic(obs_t, torch.ones(1,1,1).to(obs_t.device))
+                qt_target = policy.target_critic(obs_t, torch.ones(1,1,1).to(obs_t.device))
             else:
-                _q, _ = policy.critic[agent_idx](_obs, torch.ones(1,1,1).to(_obs.device))
+                qt = []
+                qt_target = []
+                for agent_idx in range(num_agnets):
+                    obs_t_a = observations[:, t, agent_idx, ...]        #[bz, _]
+                    _agent_q, _= policy.critic[agent_idx](obs_t_a, torch.ones(1,1,1).to(obs_t_a.device))
+                    qt.append(_agent_q)
 
+                    _agent_q_target, _ = policy.target_critic[agent_idx](obs_t_a, torch.ones(1,1,1).to(obs_t_a.device))
+                    qt_target.append(_agent_q_target)
 
-            q = _q.gather(-1, _act.unsqueeze(1)).squeeze()
-            # q = policy.critic(_obs, torch.ones(1,1,1).to(_obs.device)).gather(-1, _act.unsqueeze(1)).squeeze()
-            q_vals.append(q)
+                qt = torch.stack(qt, dim=1)     #[bz, num_agents, _]
+                qt_target = torch.stack(qt_target, dim=1)
 
-            if not isinstance(policy.critic, list):
-                next_q, _ = policy.target_critic(_next_obs, torch.ones(1, 1, 1).to(_next_obs.device))
-            else:
-                next_q, _ = policy.target_critic[agent_idx](_next_obs, torch.ones(1, 1, 1).to(_next_obs.device))
+            mac_out.append(qt)
+            target_mac_out.append(qt_target)
+        mac_out = torch.stack(mac_out, dim=1)      #[bz, traj_length, num_agents, _]
 
-            next_q[_next_action_mask==0]=-9999999
-            next_max_q = next_q.max(1)[0]
-            next_max_q_vals.append(next_max_q.detach())
+        # Pick the Q-Values for the actions taken by each agent, [bz, traj_length-1, num_agents]
+        chosen_action_qvals = torch.gather(mac_out[:, :-1, ...], dim=-1, index=actions[:,:-1,...]).squeeze(-1)
 
+        # Calculate the Q-Values necessary for the target       #[bz, traj_length-1, num_agents, _]
+        target_mac_out = torch.stack(target_mac_out[1:], dim=1)
+        target_mac_out[action_masks[:,1:,...]==0] = -99999
 
-        q_vals = torch.stack(q_vals, dim=-1)
-        next_max_q_vals = torch.stack(next_max_q_vals, dim=-1)
+        # Max over target Q-values, if double_q
+        target_max_qvals = target_mac_out.max(dim=-1)[0]
 
-        q_tot = self.mixer(q_vals, state)
+        # Mix
+        chosen_action_qvals = self.mixer(chosen_action_qvals, state[:,:-1,...])
+        target_max_qvals = self.mixer_target(target_max_qvals, state[:, 1:, ...])
 
-        next_max_q_tot = self.mixer_target(next_max_q_vals, next_state)
+        # Calculate 1-step Q-Learning targets
+        targets = rewards[:,:-1,:,0].sum(-1) + self._params['gamma'] * (1-dones[:,:-1,0,0]) * target_max_qvals
 
-        targets = (
-            rewards.sum(1) + self._params["gamma"] * (1.0 - dones[:,0,:]) * next_max_q_tot.detach()
-        )           #all agent share the same rewards
-        loss = F.smooth_l1_loss(q_tot, targets)
-        # self.loss.append(loss)
+        # TD-error
+        td_error = (chosen_action_qvals - targets.detach())
+
+        # Normal L2 loss, take mean over actual data
+        loss = (td_error**2).sum()
+
+        #Optimise
         self.optimizers.zero_grad()
         loss.backward()
-        if self._params['use_max_grad_norm']:
-            if not isinstance(self._policy.critic, list):
-                torch.nn.utils.clip_grad_norm_(
-                    self._policy.critic.parameters(), self._params['max_grad_norm']
-                )
-            else:
-                for c in self._policy.critic:
-                    torch.nn.utils.clip_grad_norm_(
-                        c.parameters(), self._params['max_grad_norm']
-                    )
-
+        if not isinstance(self._policy.critic, list):
             torch.nn.utils.clip_grad_norm_(
-                self.mixer.parameters(), self._params['max_grad_norm']
+                self._policy.critic.parameters(), self._params['max_grad_norm']
             )
-
-        # for n, p in policy.critic.named_parameters():
-        #     if p.grad is None:
-        #         Logger.error(f'critic {n} has no grad')
-        # for n, p in self.mixer.named_parameters():
-        #     if p.grad is None:
-        #         Logger.error(f'mixer {n} has no grad')
-
-
+        else:
+            for c in self._policy.critic:
+                torch.nn.utils.clip_grad_norm_(
+                    c.parameters(), self._params['max_grad_norm']
+                )
 
         self.optimizers.step()
-        self.update_target()
+
+        if self.step_ctr%self._params['target_update_freq']==0:
+            self.update_target()
+
+
 
         return {
             "mixer_loss": loss.detach().cpu().numpy(),
-            "value": q_tot.mean().detach().cpu().numpy(),
+            "value": chosen_action_qvals.mean().detach().cpu().numpy(),
             "target_value": targets.mean().detach().cpu().numpy(),
         }
 

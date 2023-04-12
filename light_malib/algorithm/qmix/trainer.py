@@ -7,7 +7,8 @@ from light_malib.registry import registry
 from light_malib.training.data_generator import (
     recurrent_generator,
     simple_data_generator,
-    simple_team_data_generator
+    simple_team_data_generator,
+    dummy_data_generator
 )
 from .loss import QMIXLoss
 import torch
@@ -16,6 +17,7 @@ from light_malib.utils.logger import Logger
 from light_malib.utils.timer import global_timer
 from ..return_compute import compute_return
 from ..common.trainer import Trainer
+from light_malib.utils.episode import EpisodeKey
 
 from .q_mixer import QMixer
 
@@ -24,6 +26,20 @@ def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
     lr = initial_lr - (initial_lr * (epoch / float(total_num_epochs)))
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
+
+def drop_bootstraping_data(batch):
+    for key in [
+        EpisodeKey.CUR_OBS,
+        EpisodeKey.DONE,
+        EpisodeKey.CRITIC_RNN_STATE,
+        EpisodeKey.CUR_STATE,
+    ]:
+        if key in batch:
+            batch[key] = batch[key][:,:-1,...]
+
+    return batch
+
+
 
 @registry.registered(registry.TRAINER)
 class QMixTrainer(Trainer):
@@ -37,6 +53,7 @@ class QMixTrainer(Trainer):
         policy = self.loss.policy
         global_timer.record("move_to_gpu_start")
 
+        batch = drop_bootstraping_data(batch)
         # move data to gpu
         for key,value in batch.items():
             if isinstance(value,np.ndarray):
@@ -46,7 +63,7 @@ class QMixTrainer(Trainer):
 
         num_mini_batch=policy.custom_config["num_mini_batch"]
         data_generator_fn = functools.partial(
-            simple_team_data_generator, batch, num_mini_batch, policy.device, shuffle=False
+            dummy_data_generator, batch, num_mini_batch, policy.device, shuffle=False
         )
 
         data_iter = data_generator_fn()

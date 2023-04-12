@@ -92,7 +92,7 @@ rollout_manager:
     sample_length: 1000                                     # every $sample_length traj will be push to buffer during rollout
     padding_length:                                         # of not use in gr_football
     rollout_func_name: "rollout_func"
-    episode_mode: 'time-step'
+    episode_mode: 'traj'
     envs:
       - cls: "gr_football"
         id_prefix: "gr_footbal"
@@ -145,7 +145,7 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 256 # how many data sample from DatasetServer per time.
+  batch_size: 80 # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
@@ -179,7 +179,7 @@ data_server:
       resources:
         - ["node:${distributed.nodes.master.ip}",0.01]
   table_cfg:
-    capacity: 10000
+    capacity: 2000
     sampler_type: "uniform"
     sample_max_usage: 10000
     rate_limiter_cfg:
