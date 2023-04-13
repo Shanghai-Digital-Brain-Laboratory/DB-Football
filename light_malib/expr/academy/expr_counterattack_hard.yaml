@@ -1,5 +1,5 @@
 expr_group: gr_football
-expr_name: benchmark_academy_counterattack
+expr_name: benchmark_academy_counterattack_hard
 log_dir: ./logs             #log directory
 seed: 0
 eval_only: False            #True if only want evaluation
@@ -96,7 +96,7 @@ rollout_manager:
       - cls: "gr_football"
         id_prefix: "gr_footbal"
         scenario_config:
-          env_name: "benchmark_academy_counterattack"
+          env_name: "benchmark_academy_counterattack_hard"
           number_of_left_players_agent_controls: 10
           number_of_right_players_agent_controls: 10
           representation: "raw"

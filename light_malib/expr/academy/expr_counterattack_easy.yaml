@@ -1,5 +1,5 @@
 expr_group: gr_football
-expr_name: benchmark_academy_corner
+expr_name: benchmark_academy_counterattack_easy
 log_dir: ./logs             #log directory
 seed: 0
 eval_only: False            #True if only want evaluation
@@ -88,7 +88,7 @@ rollout_manager:
         num_cpus: 1
     rollout_length: 400                                    #episode length
     eval_rollout_length: 400
-    sample_length: 0                                     #every $sample_length traj will be push to buffer during rollout
+    sample_length: 0                                     #every $sample_length traj will be push to buffer during rollout, sample length 0 means push when done
     padding_length: # of not use in gr_football
     rollout_func_name: "rollout_func"
     episode_mode: "traj"
@@ -96,7 +96,7 @@ rollout_manager:
       - cls: "gr_football"
         id_prefix: "gr_footbal"
         scenario_config:
-          env_name: "benchmark_academy_corner"
+          env_name: "benchmark_academy_counterattack_easy"
           number_of_left_players_agent_controls: 10
           number_of_right_players_agent_controls: 10
           representation: "raw"
@@ -109,8 +109,8 @@ rollout_manager:
           other_config_options:
             action_set: v2  #default/v2, v2 is only used for built-in AI
         reward_config:
-          goal_reward: 10
-          official_reward: 0
+          goal_reward: 0
+          official_reward: 1
     credit_reassign:
       goal: 0
       assist: 0
@@ -132,13 +132,13 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 512 # how many data sample from DatasetServer per time.
+  batch_size: 128 # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
       resources:
         num_cpus: 1
-  num_trainers: 8 # equals to number of GPUs by default
+  num_trainers: 1 # equals to number of GPUs by default
   # control the frequency of remote parameter update
   update_interval: 1
   gpu_preload: False
@@ -184,7 +184,7 @@ populations:
     algorithm:
       name: "MAPPO"
       model_config:
-        model: "gr_football.basic_11"       # model type
+        model: "gr_football.basic_academy"       # model type
         initialization:
           use_orthogonal: True
           gain: 1.
@@ -213,7 +213,9 @@ populations:
 
       # set hyper parameter
       custom_config:
-        gamma: 1.0
+        FE_cfg:          # config sent to the Feature Encoder
+          num_players: 22   # total number of players on the pitch  
+        gamma: 0.99
         use_cuda: False  # enable cuda or not
         use_q_head: False
         ppo_epoch: 5
@@ -235,7 +237,7 @@ populations:
         use_popart: True
         popart_beta: 0.99999
 
-        entropy_coef: 0.00
+        entropy_coef: 0.005
         clip_param: 0.2
         # kl_early_stop: 0.01
 

@@ -1,5 +1,5 @@
 expr_group: gr_football
-expr_name: academy_3_vs_1_with_keeper
+expr_name: benchmark_academy_3_vs_1_with_keeper
 log_dir: ./logs             #log directory
 seed: 0
 eval_only: False            #True if only want evaluation
