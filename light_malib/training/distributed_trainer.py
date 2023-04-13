@@ -18,6 +18,7 @@ from light_malib.utils.desc.task_desc import TrainingDesc
 from ..utils.distributed import get_actor
 from light_malib.utils.logger import Logger
 import torch
+import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel
 import os
 import ray
@@ -41,74 +42,31 @@ class DistributedPolicyWrapper:
         )
         self.device = torch.device("cuda:0")
         self.policy = policy.to_device(self.device)
+        # maintain a shallow copy of policy, which shares the underlying models with self.policy
+        self._policy = copy.copy(self.policy)
+     
+        self._wrapping_module_names=["actor","critic","target_critic"]#,"value_normalizer"]
+        for key in self._wrapping_module_names:
+            self._wrap(key)
 
-        if (
-            hasattr(self.policy, "actor")
-            and len(list(self.policy.actor.parameters())) > 0
-        ):
-            actor = self.policy.actor
-            self.actor = DistributedDataParallel(actor, device_ids=[0])
-
-        if (
-            hasattr(self.policy, "target_critic")
-            and len(list(self.policy.target_critic.parameters())) > 0
-        ):
-            target_critic = self.policy.target_critic
-            self.target_critic = DistributedDataParallel(target_critic, device_ids=[0])
-
-        if (
-            hasattr(self.policy, "critic")
-            and len(list(self.policy.critic.parameters())) > 0
-        ):
-            critic = self.policy.critic
-            self.critic = DistributedDataParallel(critic, device_ids=[0])
-
-        if hasattr(self.policy, "value_normalizer"):
-            # TODO jh: we need a distributed version of value_normalizer
-            value_normalizer = self.policy.value_normalizer
-            self.value_normalizer = value_normalizer
-
-    @property
-    def custom_config(self):
-        return self.policy.custom_config
-
-    @property
-    def opt_cnt(self):
-        return self.policy.opt_cnt
-
-    @opt_cnt.setter
-    def opt_cnt(self, value):
-        self.policy.opt_cnt = value
-
-    def evaluate_actions(
-        self,
-        share_obs_batch,
-        obs_batch,
-        actions_batch,
-        available_actions_batch,
-        actor_rnn_states_batch,
-        critic_rnn_states_batch,
-        dones_batch,
-        active_masks_batch=None,
-    ):
-        return self.policy.evaluate_actions(
-            share_obs_batch,
-            obs_batch,
-            actions_batch,
-            available_actions_batch,
-            actor_rnn_states_batch,
-            critic_rnn_states_batch,
-            dones_batch,
-            active_masks_batch,
-        )
-
-    def value_function(
-        self,
-        *args,
-        **kwargs,
-    ):
-        return self.policy.value_function(*args, **kwargs)
-
+        # TODO jh: we need a distributed version of value_normalizer           
+        self._wrap("value_normalizer",False)
+    
+    def _wrap(self, key, distributed=True):
+        if hasattr(self.policy,key):
+            value=getattr(self.policy,key)
+            if isinstance(value,nn.Module) and len(list(value.parameters()))>0:
+                setattr(self._policy,key,getattr(self.policy,key))
+                if distributed:
+                    setattr(self.policy,key,DistributedDataParallel(getattr(self._policy,key), device_ids=[0]))
+                else:
+                    setattr(self.policy,key,getattr(self._policy,key))
+    
+    def get_unwrapped_policy(self,device="cpu"):
+        return self._policy.to_device(device)
+    
+    def __getattr__(self, key: str):
+        return self.policy.__getattribute__(key)
 
 class DistributedTrainer:
     def __init__(
@@ -205,14 +163,16 @@ class DistributedTrainer:
         global_timer.clear()
         return training_info, timer_info
 
-    def get_unwrapped_policy(self):
-        return self.policy.policy
+    def get_unwrapped_policy(self,device="cpu"):
+        return self.policy.get_unwrapped_policy(device)
 
     def push_policy(self, version):
+        policy=self.get_unwrapped_policy()
+
         policy_desc = PolicyDesc(
             self.agent_id,
             self.policy_id,
-            self.get_unwrapped_policy().to_device("cpu"),
+            policy,
             version=version,
         )
 

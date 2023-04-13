@@ -119,16 +119,13 @@ class MAPPO(Policy):
             custom_config=custom_config,
         )
 
-        self.opt_cnt = 0
-        self.register_state(self.opt_cnt, "opt_cnt")
-
         self._use_q_head = custom_config["use_q_head"]
         self.device = torch.device(
             "cuda" if custom_config.get("use_cuda", False) else "cpu"
         )
         self.env_agent_id = kwargs["env_agent_id"]
 
-        actor = model.Actor(
+        self.actor = model.Actor(
             self.model_config["actor"],
             observation_space,
             action_space,
@@ -139,7 +136,7 @@ class MAPPO(Policy):
         # TODO(jh): retrieve from feature encoder as well.
         global_observation_space = observation_space
 
-        critic = model.Critic(
+        self.critic = model.Critic(
             self.model_config["critic"],
             global_observation_space,
             action_space if self._use_q_head else gym.spaces.Discrete(1),
@@ -150,102 +147,113 @@ class MAPPO(Policy):
         self.observation_space = observation_space
         self.action_space = action_space
 
-        # register state handler
-        self.set_actor(actor)
-        self.set_critic(critic)
-
         if custom_config["use_popart"]:
             self.value_normalizer = PopArt(
                 1, device=self.device, beta=custom_config["popart_beta"]
             )
-            self.register_state(self.value_normalizer, "value_normalizer")
-
-        self.register_state(self._actor, "actor")
-        self.register_state(self._critic, "critic")
 
     def get_initial_state(self, batch_size) -> List[DataTransferType]:
         return {
             EpisodeKey.ACTOR_RNN_STATE: np.zeros(
-                (batch_size, self._actor.rnn_layer_num, self._actor.rnn_state_size)
+                (batch_size, self.actor.rnn_layer_num, self.actor.rnn_state_size)
             ),
             EpisodeKey.CRITIC_RNN_STATE: np.zeros(
-                (batch_size, self._critic.rnn_layer_num, self._critic.rnn_state_size)
+                (batch_size, self.critic.rnn_layer_num, self.critic.rnn_state_size)
             ),
         }
 
     def to_device(self, device):
         self_copy = copy.deepcopy(self)
         self_copy.device = device
-        self_copy._actor = self_copy._actor.to(device)
-        self_copy._critic = self_copy._critic.to(device)
+        self_copy.actor = self_copy.actor.to(device)
+        self_copy.critic = self_copy.critic.to(device)
         if self.custom_config["use_popart"]:
             self_copy.value_normalizer = self_copy.value_normalizer.to(device)
             self_copy.value_normalizer.tpdv = dict(dtype=torch.float32, device=device)
         return self_copy
 
-    def compute_actions(self, observation, **kwargs):
-        raise RuntimeError("Shouldn't use it currently")
-
-    def forward_actor(self, obs, actor_rnn_states, rnn_masks):
-        logits, actor_rnn_states = self.actor(obs, actor_rnn_states, rnn_masks)
-        return logits, actor_rnn_states
-
     @shape_adjusting
     def compute_action(self, **kwargs):
-        with torch.no_grad():
+        '''
+        NOTE(jh): there are three ways of using this function.
+        1. inference=True, explore=True, actions=None, used in rollouts for training. It will sample actions randomly.
+        2. inference=True, explore=False, actions=None, used in rollouts for evaluation.It will use actions with max probs.
+        3. inference=False, explore=False, actions=not None, used in training. It will evaluate log probs of actions.
+        '''
+        inference=kwargs.get("inference",True)
+        # when actions are provided, we simply evaluate at these actions.
+        actions=kwargs.get(EpisodeKey.ACTION,None)
+        explore=kwargs.get("explore",True)
+        
+        # TODO(jh): some restrictions, may be removed later
+        assert (actions is None)==inference
+        if explore:
+            assert actions is None and inference
+        
+        with torch.set_grad_enabled(not inference):
             observations = kwargs[EpisodeKey.CUR_OBS]
             actor_rnn_states = kwargs[EpisodeKey.ACTOR_RNN_STATE]
             critic_rnn_states = kwargs[EpisodeKey.CRITIC_RNN_STATE]
             action_masks = kwargs[EpisodeKey.ACTION_MASK]
             rnn_masks = kwargs[EpisodeKey.DONE]
-            explore = kwargs["explore"]
 
             if hasattr(self.actor, "compute_action"):
                 actions, actor_rnn_states, action_log_probs = self.actor.compute_action(
-                    observations, actor_rnn_states, rnn_masks, action_masks, explore
+                    observations, actor_rnn_states, rnn_masks, action_masks, explore, actions
                 )
             else:
+                # TODO(jh): remove 
                 logits, actor_rnn_states = self.actor(
                     observations, actor_rnn_states, rnn_masks
                 )
-                illegal_action_mask = torch.FloatTensor(1 - action_masks).to(
-                    logits.device
-                )
+                illegal_action_mask = 1-action_masks
                 logits = logits - 1e10 * illegal_action_mask
 
                 dist = torch.distributions.Categorical(logits=logits)
-                actions = dist.sample() if explore else dist.probs.argmax(dim=-1)
+                if actions is None:
+                    actions = dist.sample() if explore else dist.probs.argmax(dim=-1)
+                else:
+                    dist_entropy = dist.entropy()
                 action_log_probs = dist.log_prob(actions) # num_action
-
-            actor_rnn_states = actor_rnn_states.detach().cpu().numpy()
-            actions = actions.detach().cpu().numpy()
-            if self.random_exploration:
-                exploration_actions = np.zeros(actions.shape, dtype=int)
-                for i in range(len(actions)):
-                    if random.uniform(0, 1) < self.random_exploration:
-                        exploration_actions[i] = int(random.choice(range(19)))
-                    else:
-                        exploration_actions[i] = int(actions[i])
-                actions = exploration_actions
-
-            action_log_probs = action_log_probs.detach().cpu().numpy()
 
             if EpisodeKey.CUR_STATE not in kwargs:
                 states = observations
+            else:
+                states = kwargs[EpisodeKey.CUR_STATE]
 
             values, critic_rnn_states = self.critic(
                 states, critic_rnn_states, rnn_masks
             )
-            values = values.detach().cpu().numpy()
-            critic_rnn_states = critic_rnn_states.detach().cpu().numpy()
+            
+            if inference:
+                actor_rnn_states = actor_rnn_states.detach().cpu().numpy()
+                actions = actions.detach().cpu().numpy() 
+                if self.random_exploration:
+                    exploration_actions = np.zeros(actions.shape, dtype=int)
+                    for i in range(len(actions)):
+                        if random.uniform(0, 1) < self.random_exploration:
+                            exploration_actions[i] = int(random.choice(range(19)))
+                        else:
+                            exploration_actions[i] = int(actions[i])
+                    actions = exploration_actions
 
-            return {
-                EpisodeKey.ACTION: actions,
+                action_log_probs = action_log_probs.detach().cpu().numpy()    
+                values = values.detach().cpu().numpy()
+                critic_rnn_states = critic_rnn_states.detach().cpu().numpy()
+
+            ret = {
                 EpisodeKey.ACTION_LOG_PROB: action_log_probs,
                 EpisodeKey.STATE_VALUE: values,
                 EpisodeKey.ACTOR_RNN_STATE: actor_rnn_states,
                 EpisodeKey.CRITIC_RNN_STATE: critic_rnn_states,
             }
+            
+            if kwargs.get(EpisodeKey.ACTION,None) is None:
+                ret[EpisodeKey.ACTION]=actions
+            else:
+                ret[EpisodeKey.ACTION_ENTROPY]=dist_entropy
+                
+            return ret
 
     @shape_adjusting
     def value_function(self, **kwargs):
@@ -261,24 +269,20 @@ class MAPPO(Policy):
             value = value.cpu().numpy()
             return {EpisodeKey.STATE_VALUE: value}
 
-    def train(self):
-        pass
-
-    def eval(self):
-        pass
-
     def prep_training(self):
         self.actor.train()
         self.critic.train()
+        self.value_normalizer.train()
 
     def prep_rollout(self):
         self.actor.eval()
         self.critic.eval()
+        self.value_normalizer.eval()
 
     def dump(self, dump_dir):
         os.makedirs(dump_dir, exist_ok=True)
-        torch.save(self._actor, os.path.join(dump_dir, "actor.pt"))
-        torch.save(self._critic, os.path.join(dump_dir, "critic.pt"))
+        torch.save(self.actor, os.path.join(dump_dir, "actor.pt"))
+        torch.save(self.critic, os.path.join(dump_dir, "critic.pt"))
         pickle.dump(self.description, open(os.path.join(dump_dir, "desc.pkl"), "wb"))
 
     @staticmethod
@@ -299,20 +303,8 @@ class MAPPO(Policy):
         critic_path = os.path.join(dump_dir, "critic.pt")
         if os.path.exists(actor_path):
             actor = torch.load(os.path.join(dump_dir, "actor.pt"), res.device)
-            hard_update(res._actor, actor)
+            hard_update(res.actor, actor)
         if os.path.exists(critic_path):
             critic = torch.load(os.path.join(dump_dir, "critic.pt"), res.device)
-            hard_update(res._critic, critic)
-        return res
-
-    # XXX(ziyu): test for this policy
-    def state_dict(self):
-        """Return state dict in real time"""
-
-        res = {
-            k: copy.deepcopy(v).cpu().state_dict()
-            if isinstance(v, nn.Module)
-            else v.state_dict()
-            for k, v in self._state_handler_dict.items()
-        }
+            hard_update(res.critic, critic)
         return res

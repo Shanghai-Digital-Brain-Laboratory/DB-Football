@@ -54,7 +54,7 @@ class Actor(nn.Module):
     def forward(self, observation, rnn_states, rnn_masks):
         raise NotImplementedError
 
-    def compute_action(self, obs, rnn_states, rnn_masks, action_masks, explore):
+    def compute_action(self, obs, rnn_states, rnn_masks, action_masks, explore, actions):
 
         # encoded_obs = obs[...,19:]
         # avail_actions = np.zeros((obs.shape[0], 20))

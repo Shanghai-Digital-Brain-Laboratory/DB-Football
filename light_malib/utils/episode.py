@@ -27,6 +27,7 @@ class EpisodeKey:
     ACTION_PROB = "action_prob"
     ACTION_PROBS = "action_probs"
     ACTION_LOG_PROB = "action_log_prob"
+    ACTION_ENTROPY = "action_entropy"
     # XXX(ming): seems useless
     INFO = "infos"
 

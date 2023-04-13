@@ -106,7 +106,6 @@ class MAPPOLoss(LossFunc):
         self.use_modified_mappo = policy.custom_config.get("use_modified_mappo", False)
 
         n_agent = 4
-        self._policy.opt_cnt += 1
         # cast = lambda x: torch.FloatTensor(x.copy()).to(self._policy.device)
         (
             obs_batch,
@@ -259,20 +258,23 @@ class MAPPOLoss(LossFunc):
         dones_batch,
         active_masks_batch,
     ):
-
-        logits, _ = self._policy.actor(obs_batch, actor_rnn_states_batch, dones_batch)
-        logits -= 1e10 * (1 - available_actions_batch)
-
-        dist = torch.distributions.Categorical(logits=logits)
-        # TODO(ziyu): check the shape!!!
-        action_log_probs = dist.log_prob(
-            actions_batch.view(logits.shape[:-1])
-        )  # squeeze the last 1 dimension which is just 1
-        dist_entropy = dist.entropy().mean()
-
-        values, _ = self._policy.critic(
-            share_obs_batch, critic_rnn_states_batch, dones_batch
+        ret = self._policy.compute_action(
+            **{
+            EpisodeKey.CUR_STATE: share_obs_batch,
+            EpisodeKey.CUR_OBS: obs_batch,
+            EpisodeKey.ACTION: actions_batch,
+            EpisodeKey.ACTOR_RNN_STATE: actor_rnn_states_batch,
+            EpisodeKey.CRITIC_RNN_STATE: critic_rnn_states_batch,
+            EpisodeKey.DONE: dones_batch,
+            EpisodeKey.ACTION_MASK: available_actions_batch  
+            },
+            inference=False,
+            explore=False
         )
+        
+        values=ret[EpisodeKey.STATE_VALUE]
+        action_log_probs=ret[EpisodeKey.ACTION_LOG_PROB]
+        dist_entropy=ret[EpisodeKey.ACTION_ENTROPY].mean()
 
         return values, action_log_probs, dist_entropy
 
