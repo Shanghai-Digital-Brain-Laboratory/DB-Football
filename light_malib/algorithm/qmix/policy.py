@@ -168,6 +168,12 @@ class QMix(nn.Module):
                                   custom_config,
                                   model_config["initialization"],)
 
+        self.exploration = DecayThenFlatSchedule(self.custom_config.epsilon_start,
+                                                 self.custom_config.epsilon_finish,
+                                                 self.custom_config.epsilon_anneal_time,
+                                                 decay='linear')
+        self.current_eps = 0
+
         # self.critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
         # self.target_critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
         # hard_update(self.target_critic, self.critic)
@@ -305,7 +311,7 @@ class QMix(nn.Module):
 
     def get_actions(self, obs, prev_actions, rnn_states, available_actions=None, t_env=None, explore=False):
         """See parent class."""
-        raise NotImplementedError
+        raise NotImplementedError("Deprecated")
         q_values_out, new_rnn_states = self.get_q_values(obs, prev_actions, rnn_states)
         onehot_actions, greedy_Qs = self.actions_from_q(q_values_out, available_actions=available_actions,
                                                         explore=explore, t_env=t_env)
@@ -315,11 +321,13 @@ class QMix(nn.Module):
     def compute_action(self, **kwargs):
         local_obs = kwargs[EpisodeKey.CUR_OBS]
         action_masks = kwargs[EpisodeKey.ACTION_MASK]
+        rollout_step = kwargs['step']
+
         prev_actions = None
         rnn_states = kwargs[EpisodeKey.CRITIC_RNN_STATE]
         q_values_out, new_rnn_states = self.get_q_values(local_obs, prev_actions, rnn_states)
         onehot_actions, greedy_Qs = self.actions_from_q(q_values_out, available_actions=action_masks,
-                                                        explore=False, t_env=None)
+                                                        explore=kwargs['explore'], t_env=rollout_step)
         action = [np.where(i==1)[0] for i in onehot_actions]
         action = np.concatenate(action)
         return {EpisodeKey.ACTION: action,
@@ -331,7 +339,7 @@ class QMix(nn.Module):
     ) -> DataTransferType:
         pass
 
-    def actions_from_q(self, q_values, available_actions=None, explore=False, t_env=None):
+    def actions_from_q(self, q_values, t_env, available_actions=None, explore=False):
         """
         Computes actions to take given q values.
         :param q_values: (torch.Tensor) agent observations from which to compute q values
@@ -389,6 +397,7 @@ class QMix(nn.Module):
             if explore:
                 assert no_sequence, "Can only explore on non-sequences"
                 eps = self.exploration.eval(t_env)
+                self.current_eps = eps
                 rand_numbers = np.random.rand(batch_size)
                 # random actions sample uniformly from action space
                 logits = avail_choose(torch.ones(batch_size, self.act_dim), available_actions)
@@ -488,7 +497,8 @@ class DecayThenFlatSchedule():
 
     def eval(self, T):
         if self.decay in ["linear"]:
-            return max(self.finish, self.start - self.delta * T)
+            ret = max(self.finish, self.start - self.delta * T)
+            return ret
         elif self.decay in ["exp"]:
             return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
     pass

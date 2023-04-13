@@ -117,7 +117,8 @@ class RolloutManager:
         submit_ctr = 0
         for _ in range(self.cfg.num_workers):
             self.worker_pool.submit(
-                lambda worker, v: worker.rollout.remote(rollout_desc, rollout_epoch),
+                lambda worker, v: worker.rollout.remote(rollout_desc, eval = False,
+                                                        rollout_epoch=rollout_epoch),
                 value=None,
             )
             submit_ctr += 1
@@ -432,7 +433,7 @@ class RolloutManager:
         rollout_descs *= num_eval_rollouts
 
         rollout_results = self.worker_pool.map_unordered(
-            lambda worker, rollout_desc: worker.rollout.remote(rollout_desc, eval=True),
+            lambda worker, rollout_desc: worker.rollout.remote(rollout_desc, eval=True, rollout_epoch=0),
             values=rollout_descs,
         )
 

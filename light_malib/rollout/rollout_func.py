@@ -108,6 +108,7 @@ def rollout_func(
     """
 
     sample_length = kwargs.get("sample_length", rollout_length)
+    rollout_epoch=kwargs["rollout_epoch"]
     render = kwargs.get("render", False)
     if render:
         env.render()
@@ -153,8 +154,17 @@ def rollout_func(
         policy_inputs = rename_field(step_data, EpisodeKey.NEXT_OBS, EpisodeKey.CUR_OBS)
         policy_outputs = {}
         global_timer.record("inference_start")
+        current_eps = {}
+        assert rollout_epoch is not None
+
         for agent_id, (policy_id, policy) in behavior_policies.items():
-            policy_outputs[agent_id] = policy.compute_action(explore=not eval, **policy_inputs[agent_id])
+            policy_outputs[agent_id] = policy.compute_action(**policy_inputs[agent_id],
+                                                             explore=not eval,
+                                                             step=rollout_epoch)
+            if hasattr(policy, "current_eps"):
+                current_eps[agent_id] = {'eps':policy.current_eps}
+
+
             if record_value and agent_id == "agent_0":
                 value_list.append(policy_outputs[agent_id][EpisodeKey.STATE_VALUE])
                 pos_list.append(policy_inputs[agent_id][EpisodeKey.CUR_OBS][:, 114:116])
@@ -311,6 +321,10 @@ def rollout_func(
 
 
     stats = env.get_episode_stats()
+    if len(current_eps)>0:
+        for aid in stats.keys():
+            if aid in current_eps:
+                stats[aid].update(current_eps[aid])
 
     if record_value:
         return {
