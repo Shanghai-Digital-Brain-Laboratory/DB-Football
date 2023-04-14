@@ -213,7 +213,6 @@ class PolicyFactory:
         return new_policy_id, policy
 
     def init_from_random(self, algorithm_conf, new_policy_ctr):
-        algorithm_conf = self.algorithm_cfg
         env_agent_id = self.agent_id
         policy_cls = registry.get(registry.POLICY, algorithm_conf["name"])
         policy = policy_cls(
