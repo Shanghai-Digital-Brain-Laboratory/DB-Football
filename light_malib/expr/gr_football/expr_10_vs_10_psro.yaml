@@ -89,13 +89,13 @@ rollout_manager:
     eval_rollout_length: 3001
     sample_length: 1000                                     # every $sample_length traj will be push to buffer during rollout
     padding_length: # of not use in gr_football
-    rollout_func_name: "rollout_func",
+    rollout_func_name: "rollout_func"
     episode_mode: 'traj'
     envs:
       - cls: "gr_football"
         id_prefix: "gr_footbal"
         scenario_config:
-          env_name: "10_vs_10_kaggle"
+          env_name: "benchmark_full_game_10_vs_10_hard"
           number_of_left_players_agent_controls: 10
           number_of_right_players_agent_controls: 10
           representation: "raw"

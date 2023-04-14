@@ -96,7 +96,7 @@ rollout_manager:
       - cls: "gr_football"
         id_prefix: "gr_footbal"
         scenario_config:
-          env_name: "5_vs_5"
+          env_name: "benchmark_full_game_4_vs_4_easy"
           number_of_left_players_agent_controls: 4
           number_of_right_players_agent_controls: 4
           representation: "raw"

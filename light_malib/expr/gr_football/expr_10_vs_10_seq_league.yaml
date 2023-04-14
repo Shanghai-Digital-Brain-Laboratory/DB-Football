@@ -95,7 +95,7 @@ rollout_manager:
       - cls: "gr_football"
         id_prefix: "gr_footbal"
         scenario_config:
-          env_name: "10_vs_10_kaggle"
+          env_name: "benchmark_full_game_10_vs_10_hard"
           number_of_left_players_agent_controls: 10
           number_of_right_players_agent_controls: 10
           representation: "raw"
@@ -272,7 +272,7 @@ populations:
     algorithm:
       name: "MAPPO"
       model_config:
-        model: "gr_football.basic_11"
+        model: "gr_football.basic"
         initialization:
           use_orthogonal: True
           gain: 1.
@@ -301,6 +301,8 @@ populations:
 
       # set hyper parameter
       custom_config:
+        FE_cfg:
+          num_players: 22    #config sent to the Feature Encoder
         gamma: 0.9995
         use_cuda: False  # enable cuda or not
         use_q_head: False

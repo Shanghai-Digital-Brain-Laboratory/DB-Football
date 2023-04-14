@@ -184,7 +184,7 @@ populations:
     algorithm:
       name: "MAPPO"
       model_config:
-        model: "gr_football.basic_academy"       # model type
+        model: "gr_football.basic"       # model type
         initialization:
           use_orthogonal: True
           gain: 1.
