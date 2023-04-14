@@ -13,4 +13,4 @@
 
 from light_malib.algorithm.common.actor import Actor
 from light_malib.algorithm.common.critic import Critic
-from light_malib.envs.gr_football.encoders.encoder_simple115 import FeatureEncoder
+from light_malib.envs.gr_football.encoders.encoder_basic import FeatureEncoder

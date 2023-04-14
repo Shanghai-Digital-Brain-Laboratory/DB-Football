@@ -100,7 +100,7 @@ class MAPPO(Policy):
 
         Logger.warning("use model type: {}".format(model_type))
         model = importlib.import_module("light_malib.model.{}".format(model_type))
-        self.share_backbone = model.share_backbone
+        self.share_backbone = hasattr(model, "Backbone")
         assert not self.share_backbone, "jh: not supported now, but easy to implement"
         FE_cfg = custom_config.get('FE_cfg', None)
         if FE_cfg is not None:
@@ -109,7 +109,9 @@ class MAPPO(Policy):
             self.feature_encoder = model.FeatureEncoder()
 
         # jh: re-define observation space based on feature encoder
+        global_observation_space = self.feature_encoder.global_observation_space
         observation_space = self.feature_encoder.observation_space
+        action_space = self.feature_encoder.action_space
 
         super(MAPPO, self).__init__(
             registered_name=registered_name,
@@ -132,9 +134,6 @@ class MAPPO(Policy):
             self.custom_config,
             self.model_config["initialization"],
         )
-
-        # TODO(jh): retrieve from feature encoder as well.
-        global_observation_space = observation_space
 
         self.critic = model.Critic(
             self.model_config["critic"],
@@ -197,24 +196,9 @@ class MAPPO(Policy):
             action_masks = kwargs[EpisodeKey.ACTION_MASK]
             rnn_masks = kwargs[EpisodeKey.DONE]
 
-            if hasattr(self.actor, "compute_action"):
-                actions, actor_rnn_states, action_log_probs = self.actor.compute_action(
-                    observations, actor_rnn_states, rnn_masks, action_masks, explore, actions
-                )
-            else:
-                # TODO(jh): remove 
-                logits, actor_rnn_states = self.actor(
-                    observations, actor_rnn_states, rnn_masks
-                )
-                illegal_action_mask = 1-action_masks
-                logits = logits - 1e10 * illegal_action_mask
-
-                dist = torch.distributions.Categorical(logits=logits)
-                if actions is None:
-                    actions = dist.sample() if explore else dist.probs.argmax(dim=-1)
-                else:
-                    dist_entropy = dist.entropy()
-                action_log_probs = dist.log_prob(actions) # num_action
+            actions, actor_rnn_states, action_log_probs, dist_entropy = self.actor(
+                observations, actor_rnn_states, rnn_masks, action_masks, explore, actions
+            )
 
             if EpisodeKey.CUR_STATE not in kwargs:
                 states = observations

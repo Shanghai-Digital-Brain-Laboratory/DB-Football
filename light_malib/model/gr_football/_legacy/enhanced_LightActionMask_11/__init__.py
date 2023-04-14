@@ -11,22 +11,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+### extended model with enhanced encoder and light action mask
+
 import torch
 import torch.nn as nn
 
-from light_malib.algorithm.common.rnn_net import RNNNet
-from . import encoder_basic
+from light_malib.algorithm.common import actor
+from light_malib.algorithm.common import critic
+from light_malib.envs.gr_football.encoders import encoder_enhanced_LessActionMask
+from light_malib.envs.gr_football.encoders  import encoder_basic
 from gym.spaces import Discrete
 
+class PartialLayernorm(nn.Module):
+    def __init__(self, in_dim, layer):
+        super().__init__()
+        self.layer = layer
+        self.dim = self.layer.normalized_shape[0]
+        self.layer2 = nn.LayerNorm(in_dim - self.dim)
 
-class Actor(RNNNet):
+    def forward(self, x):
+        x1 = x[..., : self.dim]
+        y1 = self.layer(x1)
+        x2 = x[..., self.dim :]
+        y2 = self.layer2(x2)
+        y = torch.concat([y1, y2], dim=-1)
+        return y
+
+class Actor(actor.Actor):
     def __init__(
         self,
         model_config,
         observation_space,
         action_space,
         custom_config,
-        initialization,
+        initialization
     ):
         if observation_space is None:
             observation_space = encoder_basic.FeatureEncoder.observation_space
@@ -35,16 +53,19 @@ class Actor(RNNNet):
         super().__init__(
             model_config, observation_space, action_space, custom_config, initialization
         )
+        self.base._feature_norm = PartialLayernorm(
+            encoder_enhanced_LessActionMask.FeatureEncoder(num_players=11*2).observation_space.shape[0],
+            nn.LayerNorm(encoder_basic.FeatureEncoder(num_players=11*2).observation_space.shape[0]),
+        )
 
-
-class Critic(RNNNet):
+class Critic(critic.Critic):
     def __init__(
         self,
         model_config,
         observation_space,
         action_space,
         custom_config,
-        initialization,
+        initialization
     ):
         if observation_space is None:
             observation_space = encoder_basic.FeatureEncoder.observation_space
@@ -53,7 +74,12 @@ class Critic(RNNNet):
         super().__init__(
             model_config, observation_space, action_space, custom_config, initialization
         )
+        self.base._feature_norm = PartialLayernorm(
+            encoder_enhanced_LessActionMask.FeatureEncoder(num_players=11*2).observation_space.shape[0],
+            nn.LayerNorm(encoder_basic.FeatureEncoder(num_players=11*2).observation_space.shape[0]),
+        )
 
-
-share_backbone = False
-FeatureEncoder = encoder_basic.FeatureEncoder
+class FeatureEncoder(encoder_enhanced_LessActionMask.FeatureEncoder):
+    def __init__(self, **kwargs):
+        kwargs["num_players"]=11*2
+        super().__init__(**kwargs)

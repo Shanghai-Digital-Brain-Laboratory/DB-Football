@@ -50,11 +50,7 @@ class Actor(nn.Module):
         self.rnn_hidden_state = [np.zeros(rnn_shape, dtype=np.float32) for _ in range(11)]
         self.model = model
 
-
-    def forward(self, observation, rnn_states, rnn_masks):
-        raise NotImplementedError
-
-    def compute_action(self, obs, rnn_states, rnn_masks, action_masks, explore, actions):
+    def forward(self, obs, rnn_states, rnn_masks, action_masks, explore, actions):
 
         # encoded_obs = obs[...,19:]
         # avail_actions = np.zeros((obs.shape[0], 20))
@@ -85,15 +81,6 @@ class Actor(nn.Module):
         action_list = torch.concatenate(action_list).squeeze(-1)
         return action_list,torch.tensor(rnn_states),torch.ones_like(action_list)
 
-
-    def eval_actions(self):
-        raise NotImplementedError
-
-    def eval_values(self):
-        raise NotImplementedError
-
-
-
 class Critic(nn.Module):
     def __init__(
         self,
@@ -113,9 +100,6 @@ class Critic(nn.Module):
         shape = list(observation.shape[:-1])
         value = torch.zeros(shape, dtype=observation.dtype, device=observation.device)
         return value, rnn_states
-
-
-share_backbone = False
 
 # TODO(jh): we need a dummy one
 class FeatureEncoder:

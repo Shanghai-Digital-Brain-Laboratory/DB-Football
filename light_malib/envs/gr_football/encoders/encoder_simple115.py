@@ -22,7 +22,7 @@ from gfootball.env.wrappers import Simple115StateWrapper
 
 
 class FeatureEncoder:
-    def __init__(self):
+    def __init__(self,**kwargs):
         self.active = -1
         self.player_pos_x, self.player_pos_y = 0, 0
         self.action_n = 19

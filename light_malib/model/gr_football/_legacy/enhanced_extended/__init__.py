@@ -16,11 +16,11 @@
 import torch
 import torch.nn as nn
 
-from light_malib.algorithm.common.rnn_net import RNNNet
-from . import encoder_enhanced
-from . import encoder_basic
+from light_malib.algorithm.common import actor
+from light_malib.algorithm.common import critic
+from light_malib.envs.gr_football.encoders import encoder_basic, encoder_enhanced
+from light_malib.utils.logger import Logger
 from gym.spaces import Discrete
-
 
 class PartialLayernorm(nn.Module):
     def __init__(self, in_dim, layer):
@@ -37,8 +37,7 @@ class PartialLayernorm(nn.Module):
         y = torch.concat([y1, y2], dim=-1)
         return y
 
-
-class Actor(RNNNet):
+class Actor(actor.Actor):
     def __init__(
         self,
         model_config,
@@ -56,12 +55,11 @@ class Actor(RNNNet):
             model_config, observation_space, action_space, custom_config, initialization
         )
         self.base._feature_norm = PartialLayernorm(
-            encoder_enhanced.FeatureEncoder().observation_space.shape[0],
-            nn.LayerNorm(encoder_basic.FeatureEncoder().observation_space.shape[0]),
+            encoder_enhanced.FeatureEncoder(num_players=11*2).observation_space.shape[0],
+            nn.LayerNorm(encoder_basic.FeatureEncoder(num_players=11*2).observation_space.shape[0]),
         )
 
-
-class Critic(RNNNet):
+class Critic(critic.Critic):
     def __init__(
         self,
         model_config,
@@ -78,10 +76,11 @@ class Critic(RNNNet):
             model_config, observation_space, action_space, custom_config, initialization
         )
         self.base._feature_norm = PartialLayernorm(
-            encoder_enhanced.FeatureEncoder().observation_space.shape[0],
-            nn.LayerNorm(encoder_basic.FeatureEncoder().observation_space.shape[0]),
+            encoder_enhanced.FeatureEncoder(num_players=11*2).observation_space.shape[0],
+            nn.LayerNorm(encoder_basic.FeatureEncoder(num_players=11*2).observation_space.shape[0]),
         )
-
-
-share_backbone = False
-FeatureEncoder = encoder_enhanced.FeatureEncoder
+        
+class FeatureEncoder(encoder_enhanced.FeatureEncoder):
+    def __init__(self, **kwargs):
+        kwargs["num_players"]=11*2
+        super().__init__(**kwargs)

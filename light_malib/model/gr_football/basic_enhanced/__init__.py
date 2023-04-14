@@ -11,6 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+model with enhanced encoder
+"""
+
+import torch
+import torch.nn as nn
+
 from light_malib.algorithm.common.actor import Actor
 from light_malib.algorithm.common.critic import Critic
-from light_malib.envs.gr_football.encoders.encoder_simple115 import FeatureEncoder
+from light_malib.envs.gr_football.encoders.encoder_enhanced import FeatureEncoder
