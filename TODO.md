@@ -14,3 +14,4 @@
 
 # REFACTOR
 1. [ ] remove modified mappo codes.
+2. [ ] make a model a class rathe than a module. merge similar models. maybe use registry?
