@@ -1,5 +1,5 @@
 expr_group: gr_football
-expr_name: 5_v_5_qmix
+expr_name: 5_v_5_qmix_episode_rnn
 log_dir: ./logs             # log directory
 seed: 0
 eval_only: False            # True if only want evaluation
@@ -67,7 +67,7 @@ rollout_manager:
       num_cpus: 1
       resources:
         - ["node:${distributed.nodes.master.ip}",0.01]
-  num_workers: 100   # numbers of parallel rollout worker, one env per worker by default
+  num_workers: 1   # numbers of parallel rollout worker, one env per worker by default
   seed: 12345
   saving_interval: 100 # the frequency of dumping model's weight
   batch_size: ${rollout_manager.num_workers}
@@ -87,7 +87,7 @@ rollout_manager:
     distributed:
       resources:
         num_cpus: 1
-    rollout_length: 3001                                    # episode length
+    rollout_length: 3001                                   # episode length
     eval_rollout_length: 3001
     sample_length: 1000                                     # every $sample_length traj will be push to buffer during rollout
     padding_length:                                         # of not use in gr_football
@@ -145,7 +145,7 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 80 # how many data sample from DatasetServer per time.
+  batch_size: 5 # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
@@ -179,7 +179,7 @@ data_server:
       resources:
         - ["node:${distributed.nodes.master.ip}",0.01]
   table_cfg:
-    capacity: 2000
+    capacity: 10000
     sampler_type: "uniform"
     sample_max_usage: 10000
     rate_limiter_cfg:
@@ -199,7 +199,7 @@ populations:
     algorithm:
       name: "QMix"
       model_config:
-        model: "gr_football.qmix_5_v_5"       # model type
+        model: "gr_football.qmix_rnn_5_v_5"       # model type
         hidden_size: 128
         central_obs_dim: 115
         initialization:
@@ -213,12 +213,11 @@ populations:
         epsilon_start: 1.0
         epsilon_finish: 0.05
         epsilon_anneal_time: 2000
-
         local_q_config:
-          n_agent: 1          #1 if parameter-sharing
+          n_agent: 4          #1 if parameter-sharing
           use_orthogonal: True
           hidden_size: 128
-          use_rnn_layer: False
+          use_rnn_layer: True
           recurrent_N: 1
           gain: 1.
           use_feature_normalization: True

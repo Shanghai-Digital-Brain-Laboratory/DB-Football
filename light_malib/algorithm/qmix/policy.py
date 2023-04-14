@@ -267,11 +267,11 @@ class QMix(nn.Module):
         else:
             q_batch, new_rnn_states = [], []
             for i in range(self.n_agent):
-                _q_batch, _new_rnn_states = self.critic[i](input_batch[i][np.newaxis,...], rnn_states[i,...][np.newaxis])
+                _q_batch, _new_rnn_states = self.critic[i](input_batch[i][np.newaxis,...], rnn_states[:,i,...][np.newaxis])
                 q_batch.append(_q_batch)
                 new_rnn_states.append(_new_rnn_states)
             q_batch = torch.concatenate(q_batch)
-            new_rnn_states = torch.stack(new_rnn_states)
+            new_rnn_states = torch.stack(new_rnn_states).permute(1,0,2)
 
 
         if action_batch is not None:
@@ -331,7 +331,7 @@ class QMix(nn.Module):
         action = [np.where(i==1)[0] for i in onehot_actions]
         action = np.concatenate(action)
         return {EpisodeKey.ACTION: action,
-                EpisodeKey.CRITIC_RNN_STATE: new_rnn_states,
+                EpisodeKey.CRITIC_RNN_STATE: new_rnn_states.detach().cpu().numpy(),
                 EpisodeKey.ACTOR_RNN_STATE: kwargs[EpisodeKey.ACTOR_RNN_STATE]}
 
     def compute_actions(

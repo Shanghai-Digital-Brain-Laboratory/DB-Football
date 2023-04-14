@@ -120,38 +120,76 @@ class QMIXLoss(LossFunc):
 
 
             #[batch_size, traj_length, num_agents, feat_dim]
-        bz, traj_length, num_agnets, _ = observations.shape
+        bz, traj_length, num_agents, _ = observations.shape
         # Calculate estimated Q-values
         mac_out = []
         target_mac_out = []
-        for t in range(traj_length):            # if use rnn
+
+        if not policy.policy.custom_config.local_q_config.use_rnn_layer:
             if not isinstance(policy.critic, list):
-                obs_t = observations[:, t, ...]     #[bz, num_agents, _]
-                qt, _= policy.critic(obs_t, torch.ones(1,1,1).to(obs_t.device))
-                qt_target, _ = policy.target_critic(obs_t, torch.ones(1,1,1).to(obs_t.device))
+                obs_pre = observations[:,:-1,...].reshape(bz*(traj_length-1)*num_agents, -1)
+                mac_out, _= policy.critic(obs_pre, torch.ones(1,1,1).to(obs_pre.device))
+                mac_out = mac_out.reshape(bz, traj_length-1, num_agents, -1)
+                obs_post = observations[:,1:,...].reshape(bz*(traj_length-1)*num_agents, -1)
+                target_mac_out, _= policy.target_critic(obs_post, torch.ones(1,1,1).to(obs_post.device))
+                target_mac_out = target_mac_out.reshape(bz, traj_length-1, num_agents, -1)
             else:
                 qt = []
                 qt_target = []
-                for agent_idx in range(num_agnets):
-                    obs_t_a = observations[:, t, agent_idx, ...]        #[bz, _]
-                    _agent_q, _= policy.critic[agent_idx](obs_t_a, torch.ones(1,1,1).to(obs_t_a.device))
+                for agent_idx in range(num_agents):
+                    obs_a_pre = observations[:,:-1,agent_idx, ...]   #[bz, traj_length, feat_dim]
+                    _agent_q, _ = policy.critic[agent_idx](obs_a_pre, torch.ones(1,1,1).to(obs_a_pre.device))
                     qt.append(_agent_q)
 
-                    _agent_q_target, _ = policy.target_critic[agent_idx](obs_t_a, torch.ones(1,1,1).to(obs_t_a.device))
+                    obs_a_post = observations[:,1:,agent_idx, ...]
+                    _agent_q_target, _ = policy.target_critic[agent_idx](obs_a_post, torch.ones(1,1,1).to(obs_a_post.device))
                     qt_target.append(_agent_q_target)
+                mac_out = torch.stack(qt, dim=-2)
+                target_mac_out = torch.stack(qt_target, dim=-2)
+        else:
+            if not isinstance(policy.critic, list):
+                critic_rnn_states = policy.policy.get_initial_state(batch_size=bz)[
+                    EpisodeKey.CRITIC_RNN_STATE]  # [num_rnn_lalyer, bz, hidden]
+                critic_rnn_states = torch.FloatTensor(critic_rnn_states).to(observations.device)
 
-                qt = torch.stack(qt, dim=1)     #[bz, num_agents, _]
-                qt_target = torch.stack(qt_target, dim=1)
+                target_critic_rnn_states = policy.policy.get_initial_state(batch_size=bz)[
+                    EpisodeKey.CRITIC_RNN_STATE]
+                target_critic_rnn_states = torch.FloatTensor(target_critic_rnn_states).to(observations.device)
 
-            mac_out.append(qt)
-            target_mac_out.append(qt_target)
-        mac_out = torch.stack(mac_out, dim=1)      #[bz, traj_length, num_agents, _]
+                obs_traj = observations.permute(1,0,2,3).reshape(traj_length, bz*num_agents, -1)[:-1,...]    #[traj_length-1, bz*num_agent, feat_dim]
+                h = critic_rnn_states.repeat(1, num_agents, 1)
+                q, final_h = policy.critic(obs_traj, h)             #q: [traj_length-1, bz*num_agent, _]
+                mac_out = q.reshape(traj_length-1, bz, num_agents, -1).permute(1,0,2,3)       #[bz, traj_length-1, num_agent, _]
+
+                target_obs_traj = observations.permute(1,0,2,3).reshape(traj_length, bz*num_agents, -1)[1:,...]
+                target_h = target_critic_rnn_states.repeat(1, num_agents, 1)
+                target_q, target_final_h = policy.target_critic(target_obs_traj, target_h)
+                target_mac_out = target_q.reshape(traj_length-1, bz, num_agents, -1).permute(1,0,2,3)
+            else:
+                critic_h_list = [torch.FloatTensor(policy.policy.get_initial_state(batch_size=bz)[
+                    EpisodeKey.CRITIC_RNN_STATE]) for i in range(len(policy.critic))]
+                target_critic_h_list = [torch.FloatTensor(policy.policy.get_initial_state(batch_size=bz)[
+                    EpisodeKey.CRITIC_RNN_STATE]) for i in range(len(policy.target_critic))]
+                q = []
+                q_target = []
+                assert num_agents == len(policy.critic)
+                for agent_idx in range(num_agents):
+                    obs_a_traj = observations[:,:-1,agent_idx,...].permute(1,0,2)        #[traj_length-1,bz,feat]
+                    qa, _ = policy.critic[agent_idx](obs_a_traj, critic_h_list[agent_idx])
+                    q.append(qa)        #[traj_length-1, bz, _]
+
+                    target_obs_a_traj = observations[:,1:,agent_idx,...].permute(1,0,2)
+                    target_qa, _ = policy.target_critic[agent_idx](target_obs_a_traj, target_critic_h_list[agent_idx])
+                    q_target.append(target_qa)
+
+                mac_out = torch.stack(q).permute(2, 1,0,3)
+                target_mac_out = torch.stack(q_target).permute(2,1,0,3)
 
         # Pick the Q-Values for the actions taken by each agent, [bz, traj_length-1, num_agents]
-        chosen_action_qvals = torch.gather(mac_out[:, :-1, ...], dim=-1, index=actions[:,:-1,...]).squeeze(-1)
+        chosen_action_qvals = torch.gather(mac_out, dim=-1, index=actions[:,:-1,...]).squeeze(-1)
 
         # Calculate the Q-Values necessary for the target       #[bz, traj_length-1, num_agents, _]
-        target_mac_out = torch.stack(target_mac_out[1:], dim=1)
+        # target_mac_out = torch.stack(target_mac_out[1:], dim=1)
         target_mac_out[action_masks[:,1:,...]==0] = -99999
 
         # Max over target Q-values, if double_q
@@ -170,6 +208,8 @@ class QMIXLoss(LossFunc):
         # Normal L2 loss, take mean over actual data
         loss = (td_error**2).sum()
 
+
+        grad_dict = {}
         #Optimise
         self.optimizers.zero_grad()
         loss.backward()
@@ -177,11 +217,20 @@ class QMIXLoss(LossFunc):
             torch.nn.utils.clip_grad_norm_(
                 self._policy.critic.parameters(), self._params['max_grad_norm']
             )
+
+            for i,j in self._policy.critic.named_parameters():
+                grad_dict[f"grad/{i}"] = j.grad.mean().detach().cpu().numpy()
         else:
-            for c in self._policy.critic:
+            for idx, c in enumerate(self._policy.critic):
                 torch.nn.utils.clip_grad_norm_(
                     c.parameters(), self._params['max_grad_norm']
                 )
+                for i,j in c.named_parameters():
+                    grad_dict[f'grad/{idx}th critic/{i}'] = j.grad.mean().detach().cpu().numpy()
+
+        torch.nn.utils.clip_grad_norm_(self.mixer.parameters(), self._params['max_grad_norm'])
+        for i,j in self.mixer.named_parameters():
+            grad_dict[f"grad/mixer/{i}"] = j.grad.mean().detach().cpu().numpy()
 
         self.optimizers.step()
 
@@ -189,13 +238,14 @@ class QMIXLoss(LossFunc):
             self.update_target()
 
 
-
-        return {
+        ret = {
             "mixer_loss": loss.detach().cpu().numpy(),
             "value": chosen_action_qvals.mean().detach().cpu().numpy(),
             "target_value": targets.mean().detach().cpu().numpy(),
         }
+        ret.update(grad_dict)
 
+        return ret
 
 def soft_update(target, source, tau):
     """Perform DDPG soft update (move target params toward source based on weight factor tau).
