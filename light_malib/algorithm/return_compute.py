@@ -57,7 +57,15 @@ def compute_async_gae(policy, batch):
         rnn_states = rnn_states.reshape((B * Tp1 * N, *rnn_states.shape[-2:]))
         masks = dones.reshape((B * Tp1 * N, -1))
 
-        normalized_value, _ = policy.critic(obs, rnn_states, masks)
+        ret = policy.value_function(
+            **{
+                EpisodeKey.CUR_OBS: obs,
+                EpisodeKey.CRITIC_RNN_STATE: rnn_states,
+                EpisodeKey.DONE: masks
+            }
+        )
+        normalized_value=ret[EpisodeKey.STATE_VALUE]
+        
         normalized_value = normalized_value.reshape((B, Tp1, N, -1)).detach()
 
         if cfg["use_popart"]:
@@ -137,7 +145,14 @@ def compute_mc(policy, batch):
         rnn_states = rnn_states.reshape((B * Tp1 * N, *rnn_states.shape[-2:]))
         masks = dones.reshape((B * Tp1 * N, -1))
 
-        normalized_value, _ = policy.critic(obs, rnn_states, masks)
+        ret = policy.value_function(
+            **{
+                EpisodeKey.CUR_OBS: obs,
+                EpisodeKey.CRITIC_RNN_STATE: rnn_states,
+                EpisodeKey.DONE: masks
+            }
+        )
+        normalized_value=ret[EpisodeKey.STATE_VALUE]
         normalized_value = normalized_value.reshape((B, Tp1, N, -1)).detach()
 
         if cfg["use_popart"]:
