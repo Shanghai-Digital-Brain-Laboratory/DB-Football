@@ -320,7 +320,7 @@ class MAPPO(Policy):
             # value = value.cpu().numpy()
             return {EpisodeKey.STATE_VALUE: value}
 
-    def prep_training(self):
+    def train(self):
         self.actor.train()
         self.critic.train()
         if self.custom_config["use_popart"]:
@@ -328,7 +328,7 @@ class MAPPO(Policy):
         if self.share_backbone:
             self.backbone.train()
 
-    def prep_rollout(self):
+    def eval(self):
         self.actor.eval()
         self.critic.eval()
         if self.custom_config["use_popart"]:

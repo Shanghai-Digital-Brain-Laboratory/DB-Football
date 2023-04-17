@@ -143,9 +143,9 @@ class Policy(metaclass=ABCMeta):
         """Compute values of critic."""
 
     @abstractmethod
-    def prep_training(self):
+    def train(self):
         pass
 
     @abstractmethod
-    def prep_rollout(self):
+    def eval(self):
         pass

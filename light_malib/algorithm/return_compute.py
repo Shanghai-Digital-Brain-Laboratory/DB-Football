@@ -57,6 +57,7 @@ def compute_async_gae(policy, batch):
         rnn_states = rnn_states.reshape((B * Tp1 * N, *rnn_states.shape[-2:]))
         masks = dones.reshape((B * Tp1 * N, -1))
 
+        policy.eval()
         ret = policy.value_function(
             **{
                 EpisodeKey.CUR_OBS: obs,
@@ -145,6 +146,7 @@ def compute_mc(policy, batch):
         rnn_states = rnn_states.reshape((B * Tp1 * N, *rnn_states.shape[-2:]))
         masks = dones.reshape((B * Tp1 * N, -1))
 
+        policy.eval()
         ret = policy.value_function(
             **{
                 EpisodeKey.CUR_OBS: obs,

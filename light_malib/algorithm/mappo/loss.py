@@ -95,6 +95,8 @@ class MAPPOLoss(LossFunc):
 
     def loss_compute(self, sample):
         policy = self._policy
+        policy.train()
+        
         self.clip_param = policy.custom_config.get("clip_param", 0.2)
         self.max_grad_norm = policy.custom_config.get("max_grad_norm", 10)
 

@@ -192,6 +192,7 @@ def rollout_func(
     for agent_id, (policy_id, policy) in behavior_policies.items():
         feature_encoders[agent_id] = policy.feature_encoder
         policy_ids[agent_id] = policy_id
+        policy.eval()
 
     custom_reset_config = {
         "feature_encoders": feature_encoders,

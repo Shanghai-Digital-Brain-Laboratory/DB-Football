@@ -1,7 +1,7 @@
 # KNOWN_BUGS
 1. [x] use max_rounds instead of max_generations.
 2. [x] allow deterministic action when evaluation.
-3. [ ] add prep_training and prep_rollout.
+3. [x] add prep_training()=>train() and prep_rollout()=>eval().
 4. [ ] misuse of obs and state. see return_compute, for example.
 5. [x] use actor.formard or critic.forward directly. instead we should use interfaces of policy.
 
