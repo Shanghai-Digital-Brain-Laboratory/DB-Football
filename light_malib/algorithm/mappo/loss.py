@@ -17,7 +17,6 @@ from light_malib.algorithm.common.loss_func import LossFunc
 from light_malib.utils.logger import Logger
 from light_malib.registry import registry
 
-
 def huber_loss(e, d):
     a = (abs(e) <= d).float()
     b = (e > d).float()
@@ -74,29 +73,25 @@ class MAPPOLoss(LossFunc):
 
     def setup_optimizers(self, *args, **kwargs):
         """Accept training configuration and setup optimizers"""
-
-        if self.optimizers is None:
-            optim_cls = getattr(torch.optim, self._params.get("optimizer", "Adam"))
-            self.optimizers = {
-                "actor": optim_cls(
-                    self.policy.actor.parameters(),
-                    lr=self._params["actor_lr"],
-                    eps=self._params["opti_eps"],
-                    weight_decay=self._params["weight_decay"],
-                ),
-                "critic": optim_cls(
-                    self.policy.critic.parameters(), lr=self._params["critic_lr"]
-                ),
-            }
-        else:
-            self.optimizers["actor"].param_groups = []
-            self.optimizers["actor"].add_param_group(
-                {"params": self.policy.actor.parameters()}
-            )
-            self.optimizers["critic"].param_groups = []
-            self.optimizers["critic"].add_param_group(
-                {"params": self.policy.critic.parameters()}
-            )
+        optim_cls = getattr(torch.optim, self._params.get("optimizer", "Adam"))
+        
+        # TODO(jh): update actor and critic simutaneously
+        param_groups=[]
+        
+        if len(list(self._policy.actor.parameters()))>0:
+            param_groups.append({'params': self.policy.actor.parameters(), 'lr': self._params["actor_lr"]})
+        
+        if len(list(self._policy.critic.parameters()))>0:
+            param_groups.append({'params': self.policy.critic.parameters(), 'lr': self._params["critic_lr"]})
+        
+        if self._policy.share_backbone and len(list(self._policy.backbone.parameters()))>0:
+            param_groups.append({'params': self.policy.backbone.parameters(), 'lr': self._params["backbone_lr"]})
+            
+        self.optimizer=optim_cls(
+            param_groups,
+            eps=self._params["opti_eps"],
+            weight_decay=self._params["weight_decay"]
+        )
 
     def loss_compute(self, sample):
         policy = self._policy
@@ -105,8 +100,6 @@ class MAPPOLoss(LossFunc):
 
         self.use_modified_mappo = policy.custom_config.get("use_modified_mappo", False)
 
-        n_agent = 4
-        # cast = lambda x: torch.FloatTensor(x.copy()).to(self._policy.device)
         (
             obs_batch,
             actions_batch,
@@ -197,32 +190,31 @@ class MAPPOLoss(LossFunc):
                 mask = (adv_targ < 0).float()
                 surr = torch.max(surr, surr3) * mask + surr * (1 - mask)
             policy_action_loss = -torch.sum(surr, dim=-1, keepdim=True).mean()
-
-        self.optimizers["actor"].zero_grad()
+ 
+        # ============================== Loss ================================
         policy_loss = (
             policy_action_loss
             - dist_entropy * self._policy.custom_config["entropy_coef"]
         )
-        policy_loss.backward()
 
-        if self._use_max_grad_norm:
-            torch.nn.utils.clip_grad_norm_(
-                self._policy.actor.parameters(), self.max_grad_norm
-            )
-        self.optimizers["actor"].step()
-
-        # ============================== Critic optimization ================================
         value_loss = self._calc_value_loss(
             values, value_preds_batch, return_batch, active_masks_batch
         )
-        self.optimizers["critic"].zero_grad()
-        value_loss.backward()
-        if self._use_max_grad_norm:
-            torch.nn.utils.clip_grad_norm_(
-                self._policy.critic.parameters(), self.max_grad_norm
-            )
-        self.optimizers["critic"].step()
+        
+        # TODO(jh): add balacing coefficients?
+        total_loss=policy_loss+value_loss
 
+        # ============================== Optimizer ================================
+        self.optimizer.zero_grad()
+        total_loss.backward()        
+        if self._use_max_grad_norm:
+            for param_group in self.optimizer.param_groups:
+                torch.nn.utils.clip_grad_norm_(
+                    param_group["params"], self.max_grad_norm
+                )
+        self.optimizer.step()
+
+        # ============================== Statistics ================================
         stats = dict(
             ratio=float(imp_weights.detach().mean().cpu().numpy()),
             ratio_std=float(imp_weights.detach().std().cpu().numpy()),
@@ -268,7 +260,6 @@ class MAPPOLoss(LossFunc):
             EpisodeKey.DONE: dones_batch,
             EpisodeKey.ACTION_MASK: available_actions_batch  
             },
-            inference=False,
             explore=False
         )
         

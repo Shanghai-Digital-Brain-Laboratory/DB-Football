@@ -46,6 +46,9 @@ class DistributedPolicyWrapper:
         self._policy = copy.copy(self.policy)
      
         self._wrapping_module_names=["actor","critic","target_critic"]#,"value_normalizer"]
+        if policy.share_backbone:
+            self._wrapping_module_names.append("backbone")
+        
         for key in self._wrapping_module_names:
             self._wrap(key)
 
@@ -58,7 +61,7 @@ class DistributedPolicyWrapper:
             if isinstance(value,nn.Module) and len(list(value.parameters()))>0:
                 setattr(self._policy,key,getattr(self.policy,key))
                 if distributed:
-                    setattr(self.policy,key,DistributedDataParallel(getattr(self._policy,key), device_ids=[0]))
+                    setattr(self.policy,key,DistributedDataParallel(getattr(self._policy,key), device_ids=[0], find_unused_parameters=True))
                 else:
                     setattr(self.policy,key,getattr(self._policy,key))
     

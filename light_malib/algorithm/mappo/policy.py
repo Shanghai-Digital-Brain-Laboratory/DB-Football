@@ -100,8 +100,9 @@ class MAPPO(Policy):
 
         Logger.warning("use model type: {}".format(model_type))
         model = importlib.import_module("light_malib.model.{}".format(model_type))
-        self.share_backbone = hasattr(model, "Backbone")
-        assert not self.share_backbone, "jh: not supported now, but easy to implement"
+        self.share_backbone = hasattr(model,"Backbone")
+        # assert not self.share_backbone, "jh: not supported now, but easy to implement"
+        
         FE_cfg = custom_config.get('FE_cfg', None)
         if FE_cfg is not None:
             self.feature_encoder = model.FeatureEncoder(**FE_cfg)
@@ -126,22 +127,54 @@ class MAPPO(Policy):
             "cuda" if custom_config.get("use_cuda", False) else "cpu"
         )
         self.env_agent_id = kwargs["env_agent_id"]
+        
+        # TODO(jh): retrieve from feature encoder as well.
+        # TODO(jh): this is not true in most cases, may be removed later.
+        global_observation_space = observation_space
+        
+        if self.share_backbone:
+            self.backbone = model.Backbone(
+                self.model_config["backbone"],
+                global_observation_space,
+                observation_space,
+                action_space,
+                self.custom_config,
+                self.model_config["initialization"]
+            )
 
-        self.actor = model.Actor(
-            self.model_config["actor"],
-            observation_space,
-            action_space,
-            self.custom_config,
-            self.model_config["initialization"],
-        )
+            self.actor=model.Actor(
+                self.model_config["actor"],
+                action_space,
+                self.custom_config,
+                self.model_config["initialization"],
+                self.backbone
+            )
 
-        self.critic = model.Critic(
-            self.model_config["critic"],
-            global_observation_space,
-            action_space if self._use_q_head else gym.spaces.Discrete(1),
-            self.custom_config,
-            self.model_config["initialization"],
-        )
+            self.critic=model.Critic(
+                self.model_config["critic"],
+                action_space if self._use_q_head else gym.spaces.Discrete(1),
+                self.custom_config,
+                self.model_config["initialization"],     
+                self.backbone   
+            )
+        
+        else:
+
+            self.actor = model.Actor(
+                self.model_config["actor"],
+                observation_space,
+                action_space,
+                self.custom_config,
+                self.model_config["initialization"],
+            )
+
+            self.critic = model.Critic(
+                self.model_config["critic"],
+                global_observation_space,
+                action_space if self._use_q_head else gym.spaces.Discrete(1),
+                self.custom_config,
+                self.model_config["initialization"],
+            )
 
         self.observation_space = observation_space
         self.action_space = action_space
@@ -152,6 +185,7 @@ class MAPPO(Policy):
             )
 
     def get_initial_state(self, batch_size) -> List[DataTransferType]:
+        # TODO(jh): try to remove dependcies on rnn_layer_num & rnn_state_size
         return {
             EpisodeKey.ACTOR_RNN_STATE: np.zeros(
                 (batch_size, self.actor.rnn_layer_num, self.actor.rnn_state_size)
@@ -166,6 +200,8 @@ class MAPPO(Policy):
         self_copy.device = device
         self_copy.actor = self_copy.actor.to(device)
         self_copy.critic = self_copy.critic.to(device)
+        if self.share_backbone:
+            self_copy.backbone = self_copy.backbone.to(device)
         if self.custom_config["use_popart"]:
             self_copy.value_normalizer = self_copy.value_normalizer.to(device)
             self_copy.value_normalizer.tpdv = dict(dtype=torch.float32, device=device)
@@ -178,37 +214,55 @@ class MAPPO(Policy):
         1. inference=True, explore=True, actions=None, used in rollouts for training. It will sample actions randomly.
         2. inference=True, explore=False, actions=None, used in rollouts for evaluation.It will use actions with max probs.
         3. inference=False, explore=False, actions=not None, used in training. It will evaluate log probs of actions.
+        
+        If inference, we assume data are numpy.ndarray.
+        If training, we assume data are torch.tensor.
         '''
-        inference=kwargs.get("inference",True)
+        # check if is numpy and convert to tensor
+        for k,v in kwargs.items():
+            if isinstance(v,np.ndarray):
+                v=torch.tensor(v, device=self.device,requires_grad=False)
+                kwargs[k]=v
+        
+        explore=kwargs.get("explore",True)
         # when actions are provided, we simply evaluate at these actions.
         actions=kwargs.get(EpisodeKey.ACTION,None)
-        explore=kwargs.get("explore",True)
-        
+
         # TODO(jh): some restrictions, may be removed later
-        assert (actions is None)==inference
-        if explore:
-            assert actions is None and inference
-        
+        inference=actions is None
+        if not inference:
+            explore=False
+            
         with torch.set_grad_enabled(not inference):
             observations = kwargs[EpisodeKey.CUR_OBS]
             actor_rnn_states = kwargs[EpisodeKey.ACTOR_RNN_STATE]
             critic_rnn_states = kwargs[EpisodeKey.CRITIC_RNN_STATE]
             action_masks = kwargs[EpisodeKey.ACTION_MASK]
             rnn_masks = kwargs[EpisodeKey.DONE]
+            if EpisodeKey.CUR_STATE not in kwargs:
+                states = observations
+            else:
+                states = kwargs[EpisodeKey.CUR_STATE]
+            
+            if self.share_backbone:
+                observations=self.backbone(
+                    states,
+                    observations,
+                    critic_rnn_states,
+                    rnn_masks
+                )
+                # actor and critic both use observations generated by the backbone
+                states=observations
 
             actions, actor_rnn_states, action_log_probs, dist_entropy = self.actor(
                 observations, actor_rnn_states, rnn_masks, action_masks, explore, actions
             )
 
-            if EpisodeKey.CUR_STATE not in kwargs:
-                states = observations
-            else:
-                states = kwargs[EpisodeKey.CUR_STATE]
-
             values, critic_rnn_states = self.critic(
                 states, critic_rnn_states, rnn_masks
             )
             
+            # TODO(jh): add to_numpy
             if inference:
                 actor_rnn_states = actor_rnn_states.detach().cpu().numpy()
                 actions = actions.detach().cpu().numpy() 
@@ -241,32 +295,53 @@ class MAPPO(Policy):
 
     @shape_adjusting
     def value_function(self, **kwargs):
+        # check if is numpy and convert to tensor
+        for k,v in kwargs.items():
+            if isinstance(v,np.ndarray):
+                v=torch.tensor(v, device=self.device, requires_grad=False)
+                kwargs[k]=v
+                    
+        # only used in inference now        
         with torch.no_grad():
-            # FIXME(ziyu): adjust shapes
+            observations = kwargs[EpisodeKey.CUR_OBS]
             if EpisodeKey.CUR_STATE not in kwargs:
-                states = kwargs[EpisodeKey.CUR_OBS]
+                states = observations
             else:
                 states = kwargs[EpisodeKey.CUR_STATE]
             critic_rnn_state = kwargs[EpisodeKey.CRITIC_RNN_STATE]
             rnn_mask = kwargs[EpisodeKey.DONE]
+                
+            if self.share_backbone:
+                observations=self.backbone(states,observations,critic_rnn_state,rnn_mask)
+                # actor and critic both use observations generated by the backbone
+                states=observations
             value, _ = self.critic(states, critic_rnn_state, rnn_mask)
-            value = value.cpu().numpy()
+            # TODO(jh): add to_numpy
+            # value = value.cpu().numpy()
             return {EpisodeKey.STATE_VALUE: value}
 
     def prep_training(self):
         self.actor.train()
         self.critic.train()
-        self.value_normalizer.train()
+        if self.custom_config["use_popart"]:
+            self.value_normalizer.train()
+        if self.share_backbone:
+            self.backbone.train()
 
     def prep_rollout(self):
         self.actor.eval()
         self.critic.eval()
-        self.value_normalizer.eval()
+        if self.custom_config["use_popart"]:
+            self.value_normalizer.eval()
+        if self.share_backbone:
+            self.backbone.eval()
 
     def dump(self, dump_dir):
         os.makedirs(dump_dir, exist_ok=True)
         torch.save(self.actor, os.path.join(dump_dir, "actor.pt"))
         torch.save(self.critic, os.path.join(dump_dir, "critic.pt"))
+        if self.share_backbone:
+            torch.save(self.backbone, os.path.join(dump_dir, "backbone.pt"))
         pickle.dump(self.description, open(os.path.join(dump_dir, "desc.pkl"), "wb"))
 
     @staticmethod
@@ -284,11 +359,19 @@ class MAPPO(Policy):
         )
 
         actor_path = os.path.join(dump_dir, "actor.pt")
-        critic_path = os.path.join(dump_dir, "critic.pt")
         if os.path.exists(actor_path):
-            actor = torch.load(os.path.join(dump_dir, "actor.pt"), res.device)
+            actor = torch.load(actor_path, res.device)
             hard_update(res.actor, actor)
+            
+        critic_path = os.path.join(dump_dir, "critic.pt")
         if os.path.exists(critic_path):
-            critic = torch.load(os.path.join(dump_dir, "critic.pt"), res.device)
+            critic = torch.load(critic_path, res.device)
             hard_update(res.critic, critic)
+        
+        if res.share_backbone:
+            backbone_path = os.path.join(dump_dir, "backbone.pt")
+            if os.path.exists(backbone_path):
+                backbone = torch.load(backbone_path, res.device)
+                hard_update(res.backbone, backbone)
+                
         return res
