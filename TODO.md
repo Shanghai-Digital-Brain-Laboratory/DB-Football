@@ -2,16 +2,25 @@
 1. [x] use max_rounds instead of max_generations.
 2. [x] allow deterministic action when evaluation.
 3. [ ] add prep_training and prep_rollout.
+4. [ ] misuse of obs and state. see return_compute, for example.
+5. [x] use actor.formard or critic.forward directly. instead we should use interfaces of policy.
 
 # ENHANCEMENT
 1. [ ] eval rollouts can also be used as training data.
 2. [x] tensorboard graph should use num_steps not num_rollouts as x-axis.
 3. [ ] plot grad norm.
 4. [ ] tensorboard graph with time as x-axis.
+5. [ ] learning rate decay.
+6. [ ] optimization: allow right controllable to be 0.
+7. [ ] allow sampling steps instead of episodes.
+8. [ ] support value normalizer.
+9. [ ] add some classic ma-envs.
 
 # CHECK
 1. [ ] check the sync-training performance, especially the evaluation performance.
+2. [ ] do we support mini-batch now?
 
 # REFACTOR
 1. [ ] remove modified mappo codes.
 2. [ ] make a model a class rathe than a module. merge similar models. maybe use registry?
+3. [ ] mappo's loss codes.
