@@ -56,7 +56,17 @@ def stack_step_data(step_data_list, bootstrap_data):
         data_list = [step_data[field] for step_data in step_data_list]
         if field in bootstrap_data:
             data_list.append(bootstrap_data[field])
-        episode_data[field] = np.stack(data_list)
+        try:
+            episode_data[field] = np.stack(data_list)
+        except Exception as e:
+            import traceback
+            Logger.error(traceback.format_exc())
+            first_shape=data_list[0].shape
+            for idx,data in enumerate(data_list):
+                if data.shape!=first_shape:
+                    Logger.error("field {}: first_shape: {}, mismatched_shape: {}, mismatched_idx: {}".format(field,first_shape,data.shape,idx))
+                    break
+            raise e
     return episode_data
 
 
