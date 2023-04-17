@@ -22,10 +22,13 @@ from light_malib.utils.timer import global_timer
 from light_malib.utils.naming import default_table_name
 
 
-def rename_field(data, field, new_field):
+def rename_fields(data, fields, new_fields):
+    assert len(fields)==len(new_fields)
     for agent_id, agent_data in data.items():
-        field_data = agent_data.pop(field)
-        agent_data[new_field] = field_data
+        for field, new_field in zip(fields,new_fields):
+            if field in agent_data:
+                field_data = agent_data.pop(field)
+                agent_data[new_field] = field_data
     return data
 
 
@@ -122,12 +125,12 @@ def submit_traj(data_server,step_data_list,last_step_data,rollout_desc,s_idx=Non
             EpisodeKey.NEXT_OBS,
             EpisodeKey.DONE,
             EpisodeKey.CRITIC_RNN_STATE,
-            EpisodeKey.CUR_STATE,
+            EpisodeKey.NEXT_STATE,
         ],
     )
+    bootstrap_data = rename_fields(bootstrap_data, [EpisodeKey.NEXT_OBS,EpisodeKey.NEXT_STATE], [EpisodeKey.CUR_OBS,EpisodeKey.CUR_OBS])
     bootstrap_data = bootstrap_data[rollout_desc.agent_id]
-    bootstrap_data[EpisodeKey.CUR_OBS] = bootstrap_data[EpisodeKey.NEXT_OBS]
-
+    
     _episode = stack_step_data(
         step_data_list[s_idx:e_idx],
         # TODO CUR_STATE is not supported now
@@ -208,7 +211,7 @@ def rollout_func(
     # collect until rollout_length
     while step <= rollout_length:
         # prepare policy input
-        policy_inputs = rename_field(step_data, EpisodeKey.NEXT_OBS, EpisodeKey.CUR_OBS)
+        policy_inputs = rename_fields(step_data, [EpisodeKey.NEXT_OBS,EpisodeKey.NEXT_STATE], [EpisodeKey.CUR_OBS,EpisodeKey.CUR_OBS])
         policy_outputs = {}
         global_timer.record("inference_start")
         for agent_id, (policy_id, policy) in behavior_policies.items():

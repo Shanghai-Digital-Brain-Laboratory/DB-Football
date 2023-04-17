@@ -42,6 +42,7 @@ def compute_async_gae(policy, batch):
         gamma, gae_lambda = cfg["gamma"], cfg["gae"]["gae_lambda"]
         rewards = batch[EpisodeKey.REWARD]
         dones = batch[EpisodeKey.DONE]
+        cur_states = batch[EpisodeKey.CUR_STATE]
         cur_obs = batch[EpisodeKey.CUR_OBS]
         rnn_states = batch[EpisodeKey.CRITIC_RNN_STATE]
 
@@ -51,15 +52,18 @@ def compute_async_gae(policy, batch):
             rewards.shape[1] == Tp1 - 1
             and dones.shape[1] == Tp1
             and rnn_states.shape[1] == Tp1
+            and cur_states.shape[1] == Tp1
         ), "{}".format({k: v.shape for k, v in batch.items()})
 
         obs = cur_obs.reshape((B * Tp1 * N, -1))
+        states = cur_states.reshape((B * Tp1 * N, -1))
         rnn_states = rnn_states.reshape((B * Tp1 * N, *rnn_states.shape[-2:]))
         masks = dones.reshape((B * Tp1 * N, -1))
 
         policy.eval()
         ret = policy.value_function(
             **{
+                EpisodeKey.CUR_STATE: states,
                 EpisodeKey.CUR_OBS: obs,
                 EpisodeKey.CRITIC_RNN_STATE: rnn_states,
                 EpisodeKey.DONE: masks
@@ -130,6 +134,7 @@ def compute_mc(policy, batch):
         gamma = cfg["gamma"]
         rewards = batch[EpisodeKey.REWARD]
         dones = batch[EpisodeKey.DONE]
+        cur_states = batch[EpisodeKey.CUR_STATE]
         cur_obs = batch[EpisodeKey.CUR_OBS]
         rnn_states = batch[EpisodeKey.CRITIC_RNN_STATE]
 
@@ -139,16 +144,19 @@ def compute_mc(policy, batch):
             rewards.shape[1] == Tp1 - 1
             and dones.shape[1] == Tp1
             and rnn_states.shape[1] == Tp1
+            and cur_states.shape[1] == Tp1
         ), "{}".format({k: v.shape for k, v in batch.items()})
 
         # get last step for boostrapping
         obs = cur_obs.reshape((B * Tp1 * N, -1))
+        states = cur_states.reshape((B * Tp1 * N, -1))
         rnn_states = rnn_states.reshape((B * Tp1 * N, *rnn_states.shape[-2:]))
         masks = dones.reshape((B * Tp1 * N, -1))
 
         policy.eval()
         ret = policy.value_function(
             **{
+                EpisodeKey.CUR_STATE: states,
                 EpisodeKey.CUR_OBS: obs,
                 EpisodeKey.CRITIC_RNN_STATE: rnn_states,
                 EpisodeKey.DONE: masks

@@ -25,7 +25,7 @@ from light_malib.utils.timer import global_timer
 from ..return_compute import compute_return
 from ..common.trainer import Trainer
 from light_malib.registry import registry
-
+from light_malib.utils.episode import EpisodeKey
 
 def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
     """Decreases the learning rate linearly"""
@@ -52,6 +52,10 @@ class MAPPOTrainer(Trainer):
             if isinstance(value, np.ndarray):
                 value = torch.FloatTensor(value)
             batch[key] = value.to(policy.device)
+        
+        if EpisodeKey.CUR_STATE not in batch:
+            batch[EpisodeKey.CUR_STATE]=batch[EpisodeKey.CUR_OBS]
+        
         global_timer.time("move_to_gpu_start", "move_to_gpu_end", "move_to_gpu")
 
         global_timer.record("compute_return_start")

@@ -103,6 +103,7 @@ class MAPPOLoss(LossFunc):
         self.use_modified_mappo = policy.custom_config.get("use_modified_mappo", False)
 
         (
+            share_obs_batch,
             obs_batch,
             actions_batch,
             value_preds_batch,
@@ -116,6 +117,7 @@ class MAPPOLoss(LossFunc):
             adv_targ,
             delta,
         ) = (
+            sample[EpisodeKey.CUR_STATE],
             sample[EpisodeKey.CUR_OBS],
             sample[EpisodeKey.ACTION].long(),
             sample[EpisodeKey.STATE_VALUE],
@@ -129,10 +131,6 @@ class MAPPOLoss(LossFunc):
             sample[EpisodeKey.ADVANTAGE],
             sample["delta"],
         )
-        if EpisodeKey.CUR_STATE in sample:
-            share_obs_batch = sample[EpisodeKey.CUR_STATE]
-        else:
-            share_obs_batch = sample[EpisodeKey.CUR_OBS]
 
         values, action_log_probs, dist_entropy = self._evaluate_actions(
             share_obs_batch,

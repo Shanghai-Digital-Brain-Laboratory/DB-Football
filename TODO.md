@@ -2,8 +2,9 @@
 1. [x] use max_rounds instead of max_generations.
 2. [x] allow deterministic action when evaluation.
 3. [x] add prep_training()=>train() and prep_rollout()=>eval().
-4. [ ] misuse of obs and state. see return_compute, for example.
+4. [x] misuse of obs and state. see return_compute, for example.
 5. [x] use actor.formard or critic.forward directly. instead we should use interfaces of policy.
+6. [ ] DQN codes need to be updated like mappo.
 
 # ENHANCEMENT
 1. [ ] eval rollouts can also be used as training data.
@@ -15,6 +16,7 @@
 7. [ ] allow sampling steps instead of episodes.
 8. [ ] support value normalizer.
 9. [ ] add some classic ma-envs.
+10. [ ] allow not to call value function again in return computation.
 
 # CHECK
 1. [ ] check the sync-training performance, especially the evaluation performance.
