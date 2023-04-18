@@ -136,14 +136,24 @@ def submit_traj(data_server,step_data_list,last_step_data,rollout_desc,s_idx=Non
         episode = _episode
 
     # submit data:
-    data_server.save.remote(
-        default_table_name(
-            rollout_desc.agent_id,
-            rollout_desc.policy_id,
-            rollout_desc.share_policies,
-        ),
-        [episode],
-    )
+    if hasattr(data_server.save, 'remote'):
+        data_server.save.remote(
+            default_table_name(
+                rollout_desc.agent_id,
+                rollout_desc.policy_id,
+                rollout_desc.share_policies,
+            ),
+            [episode],
+        )
+    else:
+        data_server.save(
+            default_table_name(
+                rollout_desc.agent_id,
+                rollout_desc.policy_id,
+                rollout_desc.share_policies,
+            ),
+            [episode],
+        )
 
 def rollout_func(
     eval: bool,
@@ -167,6 +177,8 @@ def rollout_func(
     """
 
     sample_length = kwargs.get("sample_length", rollout_length)
+    rollout_epoch=kwargs["rollout_epoch"]
+
     render = kwargs.get("render", False)
     if render:
         env.render()
@@ -199,9 +211,16 @@ def rollout_func(
         # prepare policy input
         policy_inputs = rename_field(step_data, EpisodeKey.NEXT_OBS, EpisodeKey.CUR_OBS)
         policy_outputs = {}
+        current_eps = {}
+
         global_timer.record("inference_start")
         for agent_id, (policy_id, policy) in behavior_policies.items():
-            policy_outputs[agent_id] = policy.compute_action(explore=not eval, **policy_inputs[agent_id])
+            policy_outputs[agent_id] = policy.compute_action(**policy_inputs[agent_id],
+                                                             explore=not eval,step=rollout_epoch)
+            if hasattr(policy, "current_eps"):
+                current_eps[agent_id] = {'eps':policy.current_eps}
+
+
             if record_value and agent_id == "agent_0":
                 value_list.append(policy_outputs[agent_id][EpisodeKey.STATE_VALUE])
                 pos_list.append(policy_inputs[agent_id][EpisodeKey.CUR_OBS][:, 114:116])
@@ -234,7 +253,8 @@ def rollout_func(
             env_rets,
             select_fields(
                 policy_outputs,
-                [EpisodeKey.ACTOR_RNN_STATE, EpisodeKey.CRITIC_RNN_STATE],
+                [EpisodeKey.ACTOR_RNN_STATE, EpisodeKey.CRITIC_RNN_STATE,
+                 EpisodeKey.GLOBAL_STATE],
             ),
         )
 
@@ -290,6 +310,11 @@ def rollout_func(
         ##### check if  env ends #####
         if env.is_terminated():
             stats = env.get_episode_stats()
+            if len(current_eps)>0:
+                for aid in stats.keys():
+                    if aid in current_eps:
+                        stats[aid].update(current_eps[aid])
+
             if record_value:
                 result = {
                     "main_agent_id": rollout_desc.agent_id,

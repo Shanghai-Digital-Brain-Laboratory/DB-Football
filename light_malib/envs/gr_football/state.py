@@ -49,6 +49,42 @@ class State:
     def prev_action(self):
         return self.action_list[-2] if len(self.action_list) >= 2 else None
 
+    def get_team_states(self):
+        #for qmixer
+        left_status = np.concatenate([
+            self.obs['left_team'].flatten(),
+            self.obs['left_team_direction'].flatten(),
+            self.obs['left_team_roles']]
+        )           #25
+        right_status = np.concatenate([
+            self.obs['right_team'].flatten(),
+            self.obs['right_team_direction'].flatten(),
+            self.obs['right_team_roles']]
+        )           # 25
+        ball_status = np.concatenate([
+            self.obs['ball'],
+            self.obs['ball_direction'],
+            self.obs['ball_rotation']]
+        )
+        game_mode = np.zeros(7, dtype=np.float32)
+        game_mode[self.obs["game_mode"]] = 1
+        score_ratio = self.obs["score"][0] - self.obs["score"][1]
+        score_ratio /= 5.0
+        score_ratio = min(score_ratio, 1.0)
+        score_ratio = max(-1.0, score_ratio)
+        steps_left = self.obs["steps_left"]
+        match_state = np.concatenate(
+            (
+                np.array([ steps_left , score_ratio]),
+                game_mode,
+            )
+        )
+
+        team_state = np.concatenate([left_status, right_status, ball_status, match_state])
+        return team_state
+
+
+
     def update_last_ball_owned(self):
         last_ball_owned_team, last_ball_owned_player = self.get_last_ball_owned(
             self.obs, self.prev_obs

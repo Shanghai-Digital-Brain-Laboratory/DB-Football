@@ -51,17 +51,39 @@ class DistributedPolicyWrapper:
 
         if (
             hasattr(self.policy, "target_critic")
+            and not isinstance(self.policy.target_critic, list)
             and len(list(self.policy.target_critic.parameters())) > 0
         ):
             target_critic = self.policy.target_critic
             self.target_critic = DistributedDataParallel(target_critic, device_ids=[0])
 
         if (
+            hasattr(self.policy, "target_critic")
+            and isinstance(self.policy.target_critic, list)
+        ):
+            target_critic = self.policy.target_critic
+            self.target_critic = [DistributedDataParallel(i, device_ids=[0]) for i in target_critic]
+
+
+        if (
             hasattr(self.policy, "critic")
+            and not isinstance(self.policy.critic, list)
             and len(list(self.policy.critic.parameters())) > 0
         ):
             critic = self.policy.critic
             self.critic = DistributedDataParallel(critic, device_ids=[0])
+
+        if (
+            hasattr(self.policy, "critic")
+            and isinstance(self.policy.critic, list)
+        ):
+            critic = self.policy.critic
+            self.critic = [DistributedDataParallel(i, device_ids=[0]) for i in critic]
+
+        if hasattr(self.policy, 'mac'):
+            self.mac = self.policy.mac
+            self.target_mac = self.policy.target_mac
+
 
         if hasattr(self.policy, "value_normalizer"):
             # TODO jh: we need a distributed version of value_normalizer
