@@ -14,9 +14,9 @@
 5. [ ] learning rate decay.
 6. [ ] optimization: allow right controllable to be 0.
 7. [ ] allow sampling steps instead of episodes.
-8. [ ] support value normalizer.
-9. [ ] add some classic ma-envs.
-10. [ ] allow not to call value function again in return computation.
+8. [ ] add some classic ma-envs.
+9. [ ] allow not to call value function again in return computation.
+10. [ ] allow composition of configs.
 
 # CHECK
 1. [ ] check the sync-training performance, especially the evaluation performance.
@@ -26,3 +26,4 @@
 1. [ ] remove modified mappo codes.
 2. [ ] make a model a class rathe than a module. merge similar models. maybe use registry?
 3. [ ] mappo's loss codes.
+4. [ ] maybe we should add a dedicated scheduler and runner for cooperative tasks.
