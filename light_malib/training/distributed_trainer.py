@@ -61,7 +61,7 @@ class DistributedPolicyWrapper:
             if isinstance(value,nn.Module) and len(list(value.parameters()))>0:
                 setattr(self._policy,key,getattr(self.policy,key))
                 if distributed:
-                    setattr(self.policy,key,DistributedDataParallel(getattr(self._policy,key), device_ids=[0], find_unused_parameters=True))
+                    setattr(self.policy,key,DistributedDataParallel(getattr(self._policy,key), device_ids=[0], find_unused_parameters=False)
                 else:
                     setattr(self.policy,key,getattr(self._policy,key))
     
