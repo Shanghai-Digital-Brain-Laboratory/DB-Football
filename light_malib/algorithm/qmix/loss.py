@@ -127,26 +127,36 @@ class QMIXLoss(LossFunc):
 
         if not policy.policy.custom_config.local_q_config.use_rnn_layer:
             if not isinstance(policy.critic, list):
-                obs_pre = observations[:,:-1,...].reshape(bz*(traj_length-1)*num_agents, -1)
-                mac_out, _= policy.critic(obs_pre, torch.ones(1,1,1).to(obs_pre.device))
-                mac_out = mac_out.reshape(bz, traj_length-1, num_agents, -1)
-                obs_post = observations[:,1:,...].reshape(bz*(traj_length-1)*num_agents, -1)
-                target_mac_out, _= policy.target_critic(obs_post, torch.ones(1,1,1).to(obs_post.device))
-                target_mac_out = target_mac_out.reshape(bz, traj_length-1, num_agents, -1)
+                obs_mac = observations.reshape(bz*traj_length*num_agents, -1)
+                mac_out, _ = policy.critic(obs_mac, torch.ones(1,1,1).to(obs_mac.device))
+                mac_out = mac_out.reshape(bz, traj_length, num_agents, -1)
+
+                target_mac_out, _ = policy.target_critic(obs_mac, torch.ones(1,1,1).to(obs_mac.device))
+                target_mac_out = target_mac_out.reshape(bz, traj_length, num_agents, -1)
+
+
+                # obs_pre = observations[:,:-1,...].reshape(bz*(traj_length-1)*num_agents, -1)
+                # mac_out, _= policy.critic(obs_pre, torch.ones(1,1,1).to(obs_pre.device))
+                # mac_out = mac_out.reshape(bz, traj_length-1, num_agents, -1)
+                # obs_post = observations[:,1:,...].reshape(bz*(traj_length-1)*num_agents, -1)
+                # target_mac_out, _= policy.target_critic(obs_post, torch.ones(1,1,1).to(obs_post.device))
+                # target_mac_out = target_mac_out.reshape(bz, traj_length-1, num_agents, -1)
             else:
                 qt = []
                 qt_target = []
                 for agent_idx in range(num_agents):
-                    obs_a_pre = observations[:,:-1,agent_idx, ...]   #[bz, traj_length, feat_dim]
-                    _agent_q, _ = policy.critic[agent_idx](obs_a_pre, torch.ones(1,1,1).to(obs_a_pre.device))
+                    # obs_a_pre = observations[:,:-1,agent_idx, ...]   #[bz, traj_length, feat_dim]
+
+                    _agent_q, _ = policy.critic[agent_idx](observations[:,:,agent_idx,...], torch.ones(1,1,1).to(observations.device))
                     qt.append(_agent_q)
 
-                    obs_a_post = observations[:,1:,agent_idx, ...]
-                    _agent_q_target, _ = policy.target_critic[agent_idx](obs_a_post, torch.ones(1,1,1).to(obs_a_post.device))
+                    # obs_a_post = observations[:,1:,agent_idx, ...]
+                    _agent_q_target, _ = policy.target_critic[agent_idx](observations[:,:,agent_idx,...], torch.ones(1,1,1).to(observations.device))
                     qt_target.append(_agent_q_target)
                 mac_out = torch.stack(qt, dim=-2)
                 target_mac_out = torch.stack(qt_target, dim=-2)
         else:
+            raise NotImplementedError("RNN QMix is not supported now")
             if not isinstance(policy.critic, list):
                 critic_rnn_states = policy.policy.get_initial_state(batch_size=bz)[
                     EpisodeKey.CRITIC_RNN_STATE]  # [num_rnn_lalyer, bz, hidden]
@@ -186,21 +196,27 @@ class QMIXLoss(LossFunc):
                 target_mac_out = torch.stack(q_target).permute(2,1,0,3)
 
         # Pick the Q-Values for the actions taken by each agent, [bz, traj_length-1, num_agents]
-        chosen_action_qvals = torch.gather(mac_out, dim=-1, index=actions[:,:-1,...]).squeeze(-1)
+        chosen_action_qvals = torch.gather(mac_out[:,:-1,...], dim=-1, index=actions[:,:-1,...]).squeeze(-1)
 
         # Calculate the Q-Values necessary for the target       #[bz, traj_length-1, num_agents, _]
         # target_mac_out = torch.stack(target_mac_out[1:], dim=1)
+        target_mac_out = target_mac_out[:,1:,...]
         target_mac_out[action_masks[:,1:,...]==0] = -99999
 
         # Max over target Q-values, if double_q
-        target_max_qvals = target_mac_out.max(dim=-1)[0]
+        if policy.custom_config.double_q:
+            cur_max_actions = mac_out[:,1:].max(dim=-1, keepdim=True)[1]
+            target_max_qvals = torch.gather(target_mac_out, -1, cur_max_actions).squeeze(-1)
+        else:
+            target_max_qvals = target_mac_out.max(dim=-1)[0]
+
 
         # Mix
         chosen_action_qvals = self.mixer(chosen_action_qvals, state[:,:-1,...])
         target_max_qvals = self.mixer_target(target_max_qvals, state[:, 1:, ...])
 
         # Calculate 1-step Q-Learning targets
-        targets = rewards[:,:-1,:,0].sum(-1) + self._params['gamma'] * (1-dones[:,:-1,0,0]) * target_max_qvals
+        targets = rewards[:,:-1,:,0].sum(-1) + policy.custom_config.gamma * (1-dones[:,:-1,0,0]) * target_max_qvals
 
         # TD-error
         td_error = (chosen_action_qvals - targets.detach())
@@ -234,7 +250,7 @@ class QMIXLoss(LossFunc):
 
         self.optimizers.step()
 
-        if self.step_ctr%self._params['target_update_freq']==0:
+        if self.step_ctr%policy.custom_config.target_update_freq==0:
             self.update_target()
 
 

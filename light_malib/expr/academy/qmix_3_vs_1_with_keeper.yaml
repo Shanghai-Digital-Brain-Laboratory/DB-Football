@@ -29,7 +29,7 @@ agent_manager:
   share_policies: False
 
 evaluation_manager:
-  num_eval_rollouts: 5
+  num_eval_rollouts: 30
 
 policy_data_manager:
   update_func: "gr_football" 
@@ -67,7 +67,7 @@ rollout_manager:
       num_cpus: 1
       resources:
         - ["node:${distributed.nodes.master.ip}",0.01]
-  num_workers: 5     # numbers of parallel rollout worker, one env per worker by default
+  num_workers: 100     # numbers of parallel rollout worker, one env per worker by default
   seed: 12345
   saving_interval: 300 # the frequency of dumping model's weight
   batch_size: ${rollout_manager.num_workers}
@@ -133,7 +133,7 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 128 # how many data sample from DatasetServer per time.
+  batch_size: 100 # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
@@ -166,8 +166,8 @@ data_server:
       resources:
         - ["node:${distributed.nodes.master.ip}",0.01]
   table_cfg:
-    capacity: 3000
-    sampler_type: "lumrf"
+    capacity: 5000
+    sampler_type: "uniform"
     sample_max_usage: 10000
     rate_limiter_cfg:
       min_size: ${training_manager.batch_size}
@@ -203,8 +203,10 @@ populations:
         num_mini_batch: 1  # the number of mini-batches
         epsilon_start: 1.0
         epsilon_finish: 0.05
-        epsilon_anneal_time: 600
+        epsilon_anneal_time: 1000
         prev_act_inp: False
+        double_q: True
+        target_update_freq: 10
 
         local_q_config:
           n_agent: 3          #1 if parameter-sharing
@@ -217,7 +219,7 @@ populations:
           use_ReLU: True
           use_conv1d: False
           stacked_frames: False
-          layer_N: 1
+          layer_N: 2
         qmixer_config:
           n_agent: 3
           mixer_embed_dim: 128
