@@ -17,7 +17,7 @@
 
 
 
-from . import *
+from gfootball.scenarios import *
 
 
 def build_scenario(builder):
@@ -31,7 +31,7 @@ def build_scenario(builder):
   builder.SetBallPosition(0.26, -0.11)
 
   builder.SetTeam(Team.e_Left)
-  builder.AddPlayer(-1.0, 0.0, e_PlayerRole_GK, False, False)
+  builder.AddPlayer(-1.0, 0.0, e_PlayerRole_GK,False,False)
   builder.AddPlayer(-0.672, -0.19576, e_PlayerRole_LB)
   builder.AddPlayer(-0.75, -0.06356, e_PlayerRole_CB)
   builder.AddPlayer(-0.75, 0.063559, e_PlayerRole_CB)
@@ -44,9 +44,9 @@ def build_scenario(builder):
   builder.AddPlayer(0.35, 0.316102, e_PlayerRole_CF)
 
   builder.SetTeam(Team.e_Right)
-  builder.AddPlayer(-1.0, 0.0, e_PlayerRole_GK, False, False)
+  builder.AddPlayer(-1.0, 0.0, e_PlayerRole_GK,False,False)
   builder.AddPlayer(0.128, -0.19576, e_PlayerRole_LB)
-  builder.AddPlayer(-0.4, -0.06356, e_PlayerRole_CB)
+  builder.AddPlayer(0.4, -0.06356, e_PlayerRole_CB)
   builder.AddPlayer(-0.4, 0.063559, e_PlayerRole_CB)
   builder.AddPlayer(0.128, -0.19576, e_PlayerRole_RB)
   builder.AddPlayer(0.365, -0.10568, e_PlayerRole_CM)

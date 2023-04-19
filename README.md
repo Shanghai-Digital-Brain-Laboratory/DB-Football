@@ -42,7 +42,7 @@ You can use any tool to manage your python environment. Here, we use conda as an
 ### Add a New Football Game Scenario
 1. You may use `python -c "import gfootball;print(gfootball.__file__)"` or other methods to locate where `gfootball` pacakage is. 
 2. Go to the directory of `gfootball` pacakage, for example, `/home/username/miniconda3/envs/light-malib/lib/python3.8/site-packages/gfootball/`.
-3. Copy `.py` files under `scenarios` folder in our repo to `scenarios` folder in the `gfootball` pacakage.
+3. If you need to play the game by keyboard or gamepad using official scripts, copy `.py` files under `light_malib/envs/gr_football/scenarios` folder in our repo to `scenarios` folder in the `gfootball` pacakage. By default, these scenarios will be automatically registered using `sys.modules`(see `register_new_scenarios` in [`env.py`](light_malib/envs/gr_football/env.py)).
 
 ## Run Experiments
 1. If you want to run experiments on a small cluster, please follow [ray](https://docs.ray.io/en/latest/ray-core/starting-ray.html)'s official instructions to start a cluster. For example, use `ray start --head` on the master, then connect other machines to the master following the hints from command line output.

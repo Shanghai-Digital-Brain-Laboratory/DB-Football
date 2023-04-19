@@ -16,13 +16,13 @@
 Modified from google research football's codes.
 '''
 
-from . import *
+from gfootball.scenarios import *
 
 def build_scenario(builder):
   builder.config().game_duration = 3000
   builder.config().second_half = 1500
-  builder.config().right_team_difficulty = 0.05
-  builder.config().left_team_difficulty = 0.05
+  builder.config().right_team_difficulty = 1.0
+  builder.config().left_team_difficulty = 1.0
   builder.config().deterministic = False
   if builder.EpisodeNumber() % 2 == 0:
     first_team = Team.e_Left

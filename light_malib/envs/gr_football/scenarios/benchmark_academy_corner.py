@@ -17,7 +17,7 @@
 
 
 
-from . import *
+from gfootball.scenarios import *
 
 
 def build_scenario(builder):

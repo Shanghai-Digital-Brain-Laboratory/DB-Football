@@ -17,7 +17,7 @@
 
 
 
-from . import *
+from gfootball.scenarios import *
 
 
 def build_scenario(builder):
@@ -36,4 +36,4 @@ def build_scenario(builder):
 
   builder.SetTeam(Team.e_Right)
   builder.AddPlayer(-1.0, 0.0, e_PlayerRole_GK, False, False)
-  builder.AddPlayer(-0.75, 0.1, e_PlayerRole_CB)
+  builder.AddPlayer(-0.75, 0.3, e_PlayerRole_CB)

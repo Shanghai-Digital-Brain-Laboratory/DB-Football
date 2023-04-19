@@ -34,7 +34,16 @@ from light_malib.utils.timer import global_timer
 from light_malib.utils.logger import Logger
 from light_malib.registry import registry
 
-
+def register_new_scenarios():
+    import sys
+    import pkgutil
+    import os
+    import importlib
+    path=os.path.join(os.path.dirname(__file__),"scenarios")
+    for _,module_name,_ in pkgutil.walk_packages(path=[path]):
+        module=importlib.import_module("light_malib.envs.gr_football.scenarios.{}".format(module_name))
+        sys.modules["gfootball.scenarios.{}".format(module_name)]=module
+        
 @registry.registered(registry.ENV, "gr_football")
 class GRFootballEnv(BaseEnv):
     def __init__(self, id, seed, cfg):
@@ -53,6 +62,9 @@ class GRFootballEnv(BaseEnv):
         #     "10_vs_10_kaggle",
         # ], "Because of some bugs in envs, only these scenarios are supported now. See README"
         # scenario_config["other_config_options"]["game_engine_random_seed"]=int(seed)
+        
+        register_new_scenarios()
+        
         self._env: FootballEnv = gfootball_official_env.create_environment(
             **scenario_config
         )
