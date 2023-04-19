@@ -188,8 +188,6 @@ class Decoder(nn.Module):
                                                     nn.GELU())
             else:
                 self.action_encoder = nn.Sequential(init_(nn.Linear(action_dim, n_embd), activate=True), nn.GELU())
-            self.obs_encoder = nn.Sequential(nn.LayerNorm(obs_dim),
-                                             init_(nn.Linear(obs_dim, n_embd), activate=True), nn.GELU())
             self.ln = nn.LayerNorm(n_embd)
             self.blocks = nn.Sequential(*[DecodeBlock(n_embd, n_head, n_agent) for _ in range(n_block)])
             self.head = nn.Sequential(init_(nn.Linear(n_embd, n_embd), activate=True), nn.GELU(), nn.LayerNorm(n_embd),
