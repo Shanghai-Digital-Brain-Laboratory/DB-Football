@@ -209,10 +209,10 @@ populations:
         target_update_freq: 10
 
         local_q_config:
-          n_agent: 3          #1 if parameter-sharing
+          n_agent: 1          #1 if parameter-sharing
           use_orthogonal: True
           hidden_size: 128
-          use_rnn_layer: False
+          use_rnn_layer: True
           recurrent_N: 1
           gain: 1.
           use_feature_normalization: True

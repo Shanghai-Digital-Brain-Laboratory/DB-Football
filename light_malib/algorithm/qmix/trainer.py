@@ -83,7 +83,7 @@ class QMixTrainer(Trainer):
 
     def reset(self, policies, training_config):
 
-        qmix_config = policies.policy.custom_config['qmixer_config']
+        qmix_config = policies.custom_config['qmixer_config']
 
         if self.loss.mixer is None:
             self.loss.set_mixer(QMixer(qmix_config, None, None))
