@@ -354,7 +354,7 @@ class RolloutManager:
         ray.get(_async_training_loop)
         
         # stop rollout loop
-        self.stop_async_rollout()
+        self.stop_rollout()
         _async_rollout_loop_thread.join()
 
         Logger.warning("Rollout ends after {} epochs".format(self.rollout_epoch))
