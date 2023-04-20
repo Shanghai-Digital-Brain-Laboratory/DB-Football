@@ -17,6 +17,7 @@
 8. [ ] add some classic ma-envs.
 9. [ ] allow not to call value function again in return computation.
 10. [ ] allow composition of configs.
+11. [ ] true single-agent version of MAT.
 
 # CHECK
 1. [ ] check the sync-training performance, especially the evaluation performance.
