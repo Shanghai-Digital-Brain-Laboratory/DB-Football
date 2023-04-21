@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser(
     description="play google research football competition"
 )
 parser.add_argument(
-    "--config", type=str, default="/home/yansong/Desktop/football_new/DB-Football/light_malib/expr/academy/cds_qmix_3_vs_1_with_keeper.yaml"
+    "--config", type=str, default="/home/yansong/Desktop/football_new/DB-Football/light_malib/expr/academy/qmix_3_vs_1_with_keeper.yaml"
 )
 parser.add_argument(
     "--model_0",
@@ -58,8 +58,11 @@ policy_id_1 = "policy_1"
 
 # from light_malib.registry.registration import QMix
 # policy_0 = QMix('QMix', None, None, cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
-from light_malib.registry.registration import CDS_QMix
-policy_0 = CDS_QMix('CDS_QMix', None, None, cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
+# from light_malib.registry.registration import CDS_QMix
+# policy_0 = CDS_QMix('CDS_QMix', None, None, cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
+from light_malib.registry.registration import QMix
+policy_0 = QMix('QMix', None, None,cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
+
 
 # policy_0 = MAPPO.load(model_path_0, env_agent_id="agent_0")
 policy_1 = MAPPO.load(model_path_1, env_agent_id="agent_1")
@@ -76,8 +79,9 @@ table_name = default_table_name(
 )
 datasever.create_table(table_name)
 
-from light_malib.algorithm.cds_qmix.trainer import CDS_QMixTrainer
-trainer = CDS_QMixTrainer('trainer_1')
+from light_malib.registry.registration import QMixTrainer
+# trainer = CDS_QMixTrainer('trainer_1')
+trainer = QMixTrainer('trainer_1')
 
 total_run = args.total_run
 total_win = 0
@@ -147,10 +151,11 @@ for i in range(len(data_list[0])):
 
 stack_samples = stack(samples)
 
-class trainer_cfg:
-    policy = policy_0
 
 policy_0 = policy_0.to_device('cuda:0')
+class trainer_cfg:
+    policy = policy_0
+    device = 'cpu'
 
 trainer.reset(policy_0, cfg.training_manager.trainer)
 trainer.optimize(stack_samples)

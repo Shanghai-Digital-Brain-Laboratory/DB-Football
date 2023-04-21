@@ -130,13 +130,10 @@ class QMix(nn.Module):
 
         self.model_config=  model_config
         self.custom_config = custom_config
-        # super(QMix, self).__init__(
-        #     registered_name=registered_name,
-        #     observation_space=observation_space,
-        #     action_space=action_space,
-        #     model_config=model_config,
-        #     custom_config=custom_config,
-        # )
+
+        self.use_cds = False
+
+
         super().__init__()
 
         if self.prev_act_inp:
@@ -174,19 +171,6 @@ class QMix(nn.Module):
                                                  decay='linear')
         self.current_eps = 0
 
-        # self.critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
-        # self.target_critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
-        # hard_update(self.target_critic, self.critic)
-        # for i,j in self.named_parameters():
-        #     Logger.error(f"{i}, {j.shape}")
-
-
-        # self.epsilon_start = 0.5
-        # self.epsilon_finish = 0.01
-        # self.epsilon_anneal_time = 1
-        # self.exploration = DecayThenFlatSchedule(self.epsilon_start, self.epsilon_finish,
-        #                                          self.args.epsilon_anneal_time,
-        #                                          decay="linear")
     @property
     def description(self):
         """Return a dict of basic attributes to identify policy.
