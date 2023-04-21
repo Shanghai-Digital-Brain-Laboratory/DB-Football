@@ -5,6 +5,7 @@
 4. [x] misuse of obs and state. see return_compute, for example.
 5. [x] use actor.formard or critic.forward directly. instead we should use interfaces of policy.
 6. [ ] DQN codes need to be updated like mappo.
+7. [ ] the usage of active mask.
 
 # ENHANCEMENT
 1. [ ] eval rollouts can also be used as training data.

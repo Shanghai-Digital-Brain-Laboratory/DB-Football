@@ -1,5 +1,5 @@
 expr_group: gr_football
-expr_name: full_game_4_vs_4_easy_coppo
+expr_name: full_game_4_vs_4_easy_happo
 log_dir: ./logs             # log directory
 seed: 0
 eval_only: False            # True if only want evaluation
@@ -222,7 +222,7 @@ populations:
       custom_config:
         FE_cfg:
           num_players: 10    #config sent to the Feature Encoder
-        sub_algorithm_name: CoPPO
+        sub_algorithm_name: HAPPO
         num_agents: 4 
         other_clip_param: 0.125
 

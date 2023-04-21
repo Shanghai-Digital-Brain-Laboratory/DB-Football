@@ -1,8 +1,8 @@
 expr_group: gr_football
-expr_name: full_game_4_vs_4_easy_coppo
-log_dir: ./logs             # log directory
+expr_name: benchmark_academy_3_vs_1_with_keeper_happo
+log_dir: ./logs             #log directory
 seed: 0
-eval_only: False            # True if only want evaluation
+eval_only: False            #True if only want evaluation
 
 distributed:
   use: False
@@ -15,21 +15,21 @@ distributed:
       - ip:
 
 framework:
-  name: "psro"                # framework name
-  max_rounds: 1         # psro rounds
-  meta_solver: "nash"         # 'nash', 'uniform', 'pfsp'
-  sync_training: False        # TODO[jh]: on_policy, sync_off_policy, async_off_policy
+  name: "psro"                #framework name
+  max_rounds: 1         #psro rounds
+  meta_solver: "nash"         #'nash', 'uniform', 'pfsp'
+  sync_training: False
   stopper:
     type: "win_rate_stopper"
     kwargs:
-      min_win_rate: 1.0
+      min_win_rate: 1.1
       max_steps: 100000          #iteration at each psro round
 agent_manager:
   num_agents: 2
   share_policies: False
 
 evaluation_manager:
-  num_eval_rollouts: 50
+  num_eval_rollouts: 1
 
 policy_data_manager:
   update_func: "gr_football" 
@@ -72,7 +72,7 @@ rollout_manager:
   saving_interval: 100 # the frequency of dumping model's weight
   batch_size: ${rollout_manager.num_workers}
   eval_batch_size: 100
-  eval_freq: 100 # epochs
+  eval_freq: 50 # epochs
   rollout_metric_cfgs:
     reward:
       type: "sliding"
@@ -86,18 +86,18 @@ rollout_manager:
     distributed:
       resources:
         num_cpus: 1
-    rollout_length: 3001                                    # episode length
-    eval_rollout_length: 3001
-    sample_length: 1000                                     # every $sample_length traj will be push to buffer during rollout
+    rollout_length: 400                                    #episode length
+    eval_rollout_length: 400
+    sample_length: 0                                     #every $sample_length traj will be push to buffer during rollout, sample length 0 means push when done
     padding_length: # of not use in gr_football
     rollout_func_name: "rollout_func"
-    episode_mode: 'traj'                                    # traj or time-step
+    episode_mode: "traj"
     envs:
       - cls: "gr_football"
         id_prefix: "gr_footbal"
         scenario_config:
-          env_name: "benchmark_full_game_4_vs_4_easy"
-          number_of_left_players_agent_controls: 4
+          env_name: "benchmark_academy_3_vs_1_with_keeper"
+          number_of_left_players_agent_controls: 3
           number_of_right_players_agent_controls: 1
           representation: "raw"
           rewards: "scoring,checkpoints"
@@ -109,21 +109,14 @@ rollout_manager:
           other_config_options:
             action_set: v2  #default/v2, v2 is only used for built-in AI
         reward_config:
-          win_reward: 0
-          preprocess_score: 0
-          ball_position_reward: 0
-          yellow_reward: 5
-          min_dist_reward: 0
-          goal_reward: 5
-          #pass_reward: 0.02
-          shot_reward: 0
-          lost_ball_reward: 0.
-          player_move_reward: 0.
-          dist_goal_to_line: 0
-          role_based_r: 0
-          pure_goal: 0
-          pure_lose_goal: 0
+          goal_reward: 0
+          official_reward: 1
     credit_reassign:
+      goal: 0
+      assist: 0
+      loseball: 0.
+      halt_loseball: 0.
+      gainball: 0
     decaying_exploration:
       init_noise: 0             #random exploration noise level
       total_epoch_to_zero: 2000    #number of epoch when exploration noise decay to zero
@@ -145,7 +138,7 @@ training_manager:
     distributed:
       resources:
         num_cpus: 1
-  num_trainers: 8 # equals to number of GPUs by default
+  num_trainers: 1 # equals to number of GPUs by default
   # control the frequency of remote parameter update
   update_interval: 1
   gpu_preload: False
@@ -221,12 +214,12 @@ populations:
       # set hyper parameter
       custom_config:
         FE_cfg:
-          num_players: 10    #config sent to the Feature Encoder
-        sub_algorithm_name: CoPPO
-        num_agents: 4 
+          num_players: 6    #config sent to the Feature Encoder
+        sub_algorithm_name: HAPPO
+        num_agents: 3 
         other_clip_param: 0.125
 
-        gamma: 1.0
+        gamma: 0.99
         use_cuda: False  # enable cuda or not
         use_q_head: False
         ppo_epoch: 5
@@ -248,11 +241,9 @@ populations:
         use_popart: True
         popart_beta: 0.99999
 
-        entropy_coef: 0.00
+        entropy_coef: 0.005
         clip_param: 0.2
         # kl_early_stop: 0.01
-
-        use_modified_mappo: False
 
       policy_init_cfg:
         agent_0: # agent_id
@@ -269,6 +260,6 @@ populations:
           init_cfg:
             - condition: "==0" # condition if True in order
               strategy: pretrained # now support pretrained, inherit_last, random
-              policy_id: built_in
+              policy_id: built_in_5
               policy_dir: light_malib/trained_models/gr_football/5_vs_5/built_in
           initial_policies:                         #initial population
