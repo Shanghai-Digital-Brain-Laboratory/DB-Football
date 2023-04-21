@@ -55,14 +55,6 @@ class MAPPOLoss(LossFunc):
 
         self._use_max_grad_norm = True
 
-        # the following are useless now
-        self.inner_clip_param = 0.1
-        self.use_modified_mappo = False
-        self.use_inner_clip = False
-        # TODO double clipping Tencent
-        self.use_double_clip = False
-        self.double_clip_param = 3
-
     def reset(self, policy, config):
         """Replace critic with a centralized critic"""
         self._params.update(config)
@@ -92,15 +84,37 @@ class MAPPOLoss(LossFunc):
             eps=self._params["opti_eps"],
             weight_decay=self._params["weight_decay"]
         )
+        
+    def loss_compute_seq(self, sample):
+        pass
 
     def loss_compute(self, sample):
         policy = self._policy
         policy.train()
         
+        # TODO(jh): move these settings to __init__ and reset.
         self.clip_param = policy.custom_config.get("clip_param", 0.2)
         self.max_grad_norm = policy.custom_config.get("max_grad_norm", 10)
-
-        self.use_modified_mappo = policy.custom_config.get("use_modified_mappo", False)
+        
+        self.sub_algorithm_name = policy.custom_config.get("sub_algorithm_name","MAPPO")   
+        assert self.sub_algorithm_name in ["MAPPO","CoPPO","HAPPO","A2PO"]
+        
+        if self.sub_algorithm_name=="MAPPO":
+            self._use_seq=False
+            self._use_two_stage=False
+            self._use_co_ma_ratio=False
+            self._clip_before_prod=False
+            self._clip_others=False
+        elif self.sub_algorithm_name=="CoPPO":
+            self._use_seq=False
+            self._use_two_stage=False
+            self._use_co_ma_ratio=True
+            self._clip_before_prod=False
+            self._clip_others=True
+            self._num_agents=policy.custom_config["num_agents"]
+            self._other_clip_param=policy.custom_config["other_clip_param"]
+        else:
+            raise NotImplementedError
 
         (
             share_obs_batch,
@@ -149,24 +163,39 @@ class MAPPOLoss(LossFunc):
         approx_kl = (
             (old_action_log_probs_batch - action_log_probs).mean().item()
         )
+        
+        torch.autograd.set_detect_anomaly(True)
+        
+        if self._use_co_ma_ratio:
+            each_agent_imp_weights = imp_weights.reshape(
+                -1, self._num_agents, 1
+            )
+            # NOTE(jh): important to detach, so gradients won't flow back from other agents' policy update
+            each_agent_imp_weights = each_agent_imp_weights.detach()
+            
+            mask_self = torch.eye(self._num_agents,device=each_agent_imp_weights.device,dtype=torch.bool)
+            # (#agents,#agents,1)
+            mask_self = mask_self.unsqueeze(-1)
+            
+            # (#batch,1,#agents,1)
+            each_agent_imp_weights = each_agent_imp_weights.unsqueeze(1)
+            # (#batch,#agents,#agents,1)
+            each_agent_imp_weights = each_agent_imp_weights.repeat_interleave(self._num_agents,dim=1)
+            each_agent_imp_weights[..., mask_self] = 1.0
+            
+            # (#batch,#agents,1)
+            other_agents_prod_imp_weights = each_agent_imp_weights.prod(dim=2)
+            other_agents_prod_imp_weights = torch.clamp(
+                other_agents_prod_imp_weights,
+                1.0-self._other_clip_param,
+                1.0+self._other_clip_param
+            )
 
-        if self.use_modified_mappo:
-            if self.use_inner_clip:
-                o_imp_weights = imp_weights + 1e-9 * (imp_weights == 0)
-            # #env*#agent
-            imp_weights = imp_weights.view(-1, n_agent)
-            batch_size, n_agent = imp_weights.shape
-            imp_weights = torch.prod(imp_weights, dim=-1, keepdim=True)
-            imp_weights = torch.tile(imp_weights, (1, n_agent))
-            imp_weights = imp_weights.view(batch_size * n_agent, 1)
-            if self.use_inner_clip:
-                imp_weights /= o_imp_weights
-                imp_weights = torch.clamp(
-                    imp_weights,
-                    1.0 - self.inner_clip_param,
-                    1.0 + self.inner_clip_param,
-                )
-                imp_weights *= o_imp_weights
+            other_agents_prod_imp_weights = other_agents_prod_imp_weights.reshape(
+                -1, 1
+            )
+            imp_weights = imp_weights * other_agents_prod_imp_weights
+
 
         surr1 = imp_weights * adv_targ
         surr2 = (
@@ -174,21 +203,13 @@ class MAPPOLoss(LossFunc):
             * adv_targ
         )
 
-        if self.use_double_clip:
-            surr3 = self.double_clip_param * adv_targ
-
         if active_masks_batch is not None:
             surr = torch.min(surr1, surr2)
-            if self.use_double_clip:
-                surr = torch.max(surr, surr3)
             policy_action_loss = (
                 -torch.sum(surr, dim=-1, keepdim=True) * active_masks_batch
             ).sum() / active_masks_batch.sum()
         else:
             surr = torch.min(surr1, surr2)
-            if self.use_double_clip:
-                mask = (adv_targ < 0).float()
-                surr = torch.max(surr, surr3) * mask + surr * (1 - mask)
             policy_action_loss = -torch.sum(surr, dim=-1, keepdim=True).mean()
  
         # ============================== Loss ================================
