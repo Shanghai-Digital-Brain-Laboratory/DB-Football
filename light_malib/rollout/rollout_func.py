@@ -215,7 +215,12 @@ def rollout_func(
         policy_outputs = {}
         global_timer.record("inference_start")
         for agent_id, (policy_id, policy) in behavior_policies.items():
-            policy_outputs[agent_id] = policy.compute_action(explore=not eval, **policy_inputs[agent_id])
+            policy_outputs[agent_id] = policy.compute_action(
+                inference=True, 
+                explore=not eval,
+                to_numpy=True,
+                **policy_inputs[agent_id]
+            )
             if record_value and agent_id == "agent_0":
                 value_list.append(policy_outputs[agent_id][EpisodeKey.STATE_VALUE])
                 pos_list.append(policy_inputs[agent_id][EpisodeKey.CUR_OBS][:, 114:116])

@@ -278,7 +278,7 @@ class GRFootballEnv(BaseEnv):
         if self.done:
             return True
 
-        return self.step_ctr >= self.rollout_length
+        return self.step_ctr >= self.rollout_length-1
 
     def split(self, arr):
         ret = {agent_id: arr[self.slices[agent_id]] for agent_id in self.agent_ids}

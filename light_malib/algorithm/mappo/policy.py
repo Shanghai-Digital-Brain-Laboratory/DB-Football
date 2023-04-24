@@ -61,14 +61,14 @@ def shape_adjusting(wrapped, instance, args, kwargs):
     num_shape_ahead = len(original_shape_pre)
 
     def adjust_fn(x):
-        if isinstance(x, np.ndarray):
-            return np.reshape(x, (-1,) + x.shape[num_shape_ahead:])
+        if isinstance(x, (np.ndarray,torch.Tensor)):
+            return x.reshape((-1,) + x.shape[num_shape_ahead:])
         else:
             return x
 
     def recover_fn(x):
-        if isinstance(x, np.ndarray):
-            return np.reshape(x, original_shape_pre + x.shape[1:])
+        if isinstance(x, (np.ndarray,torch.Tensor)):
+            return x.reshape(original_shape_pre + x.shape[1:])
         else:
             return x
 
@@ -214,22 +214,21 @@ class MAPPO(Policy):
         1. inference=True, explore=True, actions=None, used in rollouts for training. It will sample actions randomly.
         2. inference=True, explore=False, actions=None, used in rollouts for evaluation.It will use actions with max probs.
         3. inference=False, explore=False, actions=not None, used in training. It will evaluate log probs of actions.
-        
-        If inference, we assume data are numpy.ndarray.
-        If training, we assume data are torch.tensor.
         '''
         # check if is numpy and convert to tensor
+        # TODO(jh): numpy<->tensor conversion should be automatic. to_numpy should be automatically set.
         for k,v in kwargs.items():
             if isinstance(v,np.ndarray):
                 v=torch.tensor(v, device=self.device,requires_grad=False)
                 kwargs[k]=v
-        
-        explore=kwargs.get("explore",True)
-        # when actions are provided, we simply evaluate at these actions.
-        actions=kwargs.get(EpisodeKey.ACTION,None)
 
-        # TODO(jh): some restrictions, may be removed later
-        inference=actions is None
+        actions=kwargs.get(EpisodeKey.ACTION,None)        
+        explore=kwargs.get("explore",True)
+        inference=kwargs.get("inference",True)
+        # when actions are provided, we simply evaluate at these actions.
+        no_critic=kwargs.get("no_critic",False)
+        to_numpy=kwargs.get("to_numpy",False)
+
         if not inference:
             explore=False
             
@@ -257,13 +256,9 @@ class MAPPO(Policy):
             actions, actor_rnn_states, action_log_probs, dist_entropy = self.actor(
                 observations, actor_rnn_states, rnn_masks, action_masks, explore, actions
             )
-
-            values, critic_rnn_states = self.critic(
-                states, critic_rnn_states, rnn_masks
-            )
             
             # TODO(jh): add to_numpy
-            if inference:
+            if to_numpy:
                 actor_rnn_states = actor_rnn_states.detach().cpu().numpy()
                 actions = actions.detach().cpu().numpy() 
                 if self.random_exploration:
@@ -276,12 +271,9 @@ class MAPPO(Policy):
                     actions = exploration_actions
 
                 action_log_probs = action_log_probs.detach().cpu().numpy()    
-                values = values.detach().cpu().numpy()
-                critic_rnn_states = critic_rnn_states.detach().cpu().numpy()
 
             ret = {
                 EpisodeKey.ACTION_LOG_PROB: action_log_probs,
-                EpisodeKey.STATE_VALUE: values,
                 EpisodeKey.ACTOR_RNN_STATE: actor_rnn_states,
                 EpisodeKey.CRITIC_RNN_STATE: critic_rnn_states,
             }
@@ -291,18 +283,33 @@ class MAPPO(Policy):
             else:
                 ret[EpisodeKey.ACTION_ENTROPY]=dist_entropy
                 
+            if not no_critic:    
+                values, critic_rnn_states = self.critic(
+                    states, critic_rnn_states, rnn_masks
+                )
+                
+                if to_numpy:
+                    values = values.detach().cpu().numpy()
+                    critic_rnn_states = critic_rnn_states.detach().cpu().numpy()
+                
+                ret[EpisodeKey.STATE_VALUE]=values
+                ret[EpisodeKey.CRITIC_RNN_STATE]=critic_rnn_states
+                
             return ret
 
     @shape_adjusting
-    def value_function(self, **kwargs):
+    def value_function(self, **kwargs):        
         # check if is numpy and convert to tensor
         for k,v in kwargs.items():
             if isinstance(v,np.ndarray):
                 v=torch.tensor(v, device=self.device, requires_grad=False)
                 kwargs[k]=v
+                
+        inference=kwargs.get("inference",True)
+        to_numpy=kwargs.get("to_numpy",False)
                     
         # only used in inference now        
-        with torch.no_grad():
+        with torch.set_grad_enabled(not inference):
             observations = kwargs[EpisodeKey.CUR_OBS]
             if EpisodeKey.CUR_STATE not in kwargs:
                 states = observations
@@ -316,6 +323,10 @@ class MAPPO(Policy):
                 # actor and critic both use observations generated by the backbone
                 states=observations
             value, _ = self.critic(states, critic_rnn_state, rnn_mask)
+            
+            if to_numpy:
+                value = value.cpu().numpy()
+            
             # TODO(jh): add to_numpy
             # value = value.cpu().numpy()
             return {EpisodeKey.STATE_VALUE: value}

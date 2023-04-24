@@ -18,7 +18,7 @@ from light_malib.utils.logger import Logger
 from light_malib.utils.timer import global_timer
 
 
-def simple_data_generator(data, num_mini_batch, device, shuffle=False):
+def simple_data_generator(data, num_mini_batch, device, shuffle=True):
     assert len(data[EpisodeKey.CUR_OBS].shape) == 4, "{}".format(
         {k: v.shape for k, v in data.items()}
     )
@@ -44,9 +44,7 @@ def simple_data_generator(data, num_mini_batch, device, shuffle=False):
             # batch_size,n_agent,...
             # -> batch_size*n_agent,...
             batch[k] = batch[k].reshape(-1, *batch[k].shape[2:])
-        global_timer.record("to_gpu_start")
         batch = {k: v for k, v in batch.items()}
-        global_timer.time("to_gpu_start", "to_gpu_end", "to_gpu")
         yield batch
         return
 
@@ -75,6 +73,8 @@ def simple_data_generator(data, num_mini_batch, device, shuffle=False):
 
 
 def recurrent_generator(data, num_mini_batch, rnn_data_chunk_length, device):
+    raise NotImplementedError("jh: whoever wants to use this function needs to double check this implementation first.")
+    
     batch = {k: d for k, d in data.items()}
     # batch_size,seq_length,n_agent(,n_feats*)
     assert len(batch[EpisodeKey.CUR_OBS].shape) == 4, "{}".format(
