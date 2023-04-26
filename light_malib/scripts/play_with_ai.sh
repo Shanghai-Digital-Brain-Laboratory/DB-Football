@@ -22,11 +22,16 @@ export PYTHONPATH=$base_dir
 
 start=`date +%s`
 
-ai_path='light_malib/trained_models/gr_football/11_vs_11/current_best'
+ai_path='/home/yansong/Downloads/5v5_baseline1' #'light_malib/trained_models/gr_football/11_vs_11/current_best'
 ai_path2='light_malib/trained_models/gr_football/11_vs_11/defensive_passer'
 
 ai_path="$base_dir/$ai_path"
 ai_path2="$base_dir/$ai_path2"
+
+
+#5v5
+python3 -m gfootball.play_game --players "football_ai_light:left_players=4,checkpoint=${ai_path}" --action_set=default --level "5_vs_5" --real_time=false
+
 
 
 #11v11

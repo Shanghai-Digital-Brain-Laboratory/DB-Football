@@ -16,13 +16,13 @@ import numpy as np
 
 
 class State:
-    def __init__(self):
+    def __init__(self, n_player=11):
         self.obs_list = []
         self.action_list = []
         self.last_ball_owned_team = None
         self.last_ball_owned_player = None
 
-        self.num_player = 11  # 11 for 11v11 scenarios, 5 for 5v5
+        self.num_player = n_player  # 11 for 11v11 scenarios, 5 for 5v5
         self.last_loffside = np.zeros(self.num_player, np.float32)
         self.last_roffside = np.zeros(self.num_player, np.float32)
 
