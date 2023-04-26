@@ -207,7 +207,7 @@ class RolloutManager:
                     )
                     best_reward = reward
                     self.push_best_model_to_policy_server(rollout_epoch)
-                    
+
                 # training step: update the model    
                 ray.get(self.traning_manager.train_step.remote())
                 

@@ -149,14 +149,27 @@ def submit_traj(data_server,step_data_list,last_step_data,rollout_desc,s_idx=Non
         episode = _episode
 
     # submit data:
-    data_server.save.remote(
-        default_table_name(
-            rollout_desc.agent_id,
-            rollout_desc.policy_id,
-            rollout_desc.share_policies,
-        ),
-        [episode],
-    )
+    if hasattr(data_server.save, 'remote'):
+        data_server.save.remote(
+            default_table_name(
+                rollout_desc.agent_id,
+                rollout_desc.policy_id,
+                rollout_desc.share_policies,
+            ),
+            [episode],
+        )
+    else:
+        data_server.save(
+            default_table_name(
+                rollout_desc.agent_id,
+                rollout_desc.policy_id,
+                rollout_desc.share_policies,
+            ),
+            [episode],
+        )
+
+
+
 
 def rollout_func(
     eval: bool,
@@ -219,6 +232,7 @@ def rollout_func(
                 inference=True, 
                 explore=not eval,
                 to_numpy=True,
+                step = kwargs.get('rollout_epoch', 0),
                 **policy_inputs[agent_id]
             )
             if record_value and agent_id == "agent_0":

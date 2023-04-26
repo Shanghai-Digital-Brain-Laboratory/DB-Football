@@ -128,7 +128,7 @@ class TrainingManager:
         while not stopped:
             stopped=self.train_step()
         
-    def get_traininig_loop(self):  
+    def get_traininig_loop(self):
         self.stop_flag = False
         self.stop_flag_lock = threading.Lock()
               

@@ -10,4 +10,7 @@
 
 # python light_malib/main_pbt.py --config light_malib/expr/cooperation/academy/expr_counterattack.yaml
 
-python light_malib/main_pbt.py --config light_malib/expr/cooperation/academy/expr_3_vs_1_with_keeper.yaml
+#python light_malib/main_pbt.py --config light_malib/expr/cooperation/academy/expr_3_vs_1_with_keeper.yaml
+
+python light_malib/main_pbt.py --config light_malib/expr/qmix/expr_3_vs_1_with_keeper_qmix.yaml
+

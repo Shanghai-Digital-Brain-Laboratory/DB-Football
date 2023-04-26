@@ -111,7 +111,8 @@ class PolicyFactory:
                     )
                 elif strategy == "pretrained":
                     pid, policy = self.init_from_pretrained_model(
-                        cfg["policy_id"], cfg["policy_dir"], new_policy_ctr
+                        cfg["policy_id"], cfg["policy_dir"], new_policy_ctr,
+                        **cfg.get('custom_config', {})
                     )
                 elif strategy == "random":
                     pid, policy = self.init_from_random(
@@ -199,14 +200,15 @@ class PolicyFactory:
         )
         return new_policy_id, policy
 
-    def init_from_pretrained_model(self, policy_id, policy_dir, new_policy_ctr):
+    def init_from_pretrained_model(self, policy_id, policy_dir, new_policy_ctr, **kwargs):
         policy_cfg_pickle = pkl.load(open(os.path.join(policy_dir, "desc.pkl"), "rb"))
         policy_cls = registry.get(registry.POLICY, policy_cfg_pickle["registered_name"])
         new_policy_id = self.default_policy_id(
             self.agent_id, self.population_id, new_policy_ctr
         )
         policy = policy_cls.load(policy_dir, env_agent_id=self.agent_id)
-        policy.custom_config = self.algorithm_cfg["custom_config"]
+        if kwargs.get('reload_config', True):           #replace the policy cfg with the cfg in the yaml file
+            policy.custom_config = self.algorithm_cfg["custom_config"]
         Logger.warning(
             f"{self.agent_id}: {new_policy_id} is initialized from a pretrained model {policy_id}:{policy_dir}, cls = {policy_cls}"
         )

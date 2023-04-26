@@ -19,6 +19,10 @@ from light_malib.algorithm.dqn.loss import DQNLoss
 from light_malib.algorithm.dqn.policy import DQN
 from light_malib.algorithm.dqn.trainer import DQNTrainer
 
+from light_malib.algorithm.qmix.policy import QMix
+from light_malib.algorithm.qmix.loss import QMIXLoss
+from light_malib.algorithm.qmix.trainer import QMixTrainer
+
 from light_malib.envs.gr_football.env import GRFootballEnv
 
 from light_malib.framework.scheduler.stopper.common.win_rate_stopper import (

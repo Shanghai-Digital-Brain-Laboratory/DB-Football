@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(
     description="play google research football competition"
 )
 parser.add_argument(
-    "--config", type=str, default="light_malib/expr/gr_football/expr_10_vs_10_psro.yaml"
+    "--config", type=str, default="/home/yansong/Desktop/football_new/DB-Football/light_malib/expr/qmix/expr_3_vs_1_with_keeper_qmix.yaml"
 )
 parser.add_argument(
     "--model_0",
@@ -36,7 +36,7 @@ parser.add_argument(
 parser.add_argument(
     "--model_1",
     type=str,
-    default="light_malib/trained_models/gr_football/11_vs_11/built_in",
+    default="/home/yansong/Desktop/football_new/DB-Football/light_malib/trained_models/gr_football/5_vs_5/built_in",
 )
 parser.add_argument("--render", default=False, action="store_true")
 parser.add_argument("--total_run", default=1, type=int)
@@ -51,7 +51,12 @@ cfg["rollout_manager"]["worker"]["envs"][0]["scenario_config"]["render"] = args.
 
 policy_id_0 = "policy_0"
 policy_id_1 = "policy_1"
-policy_0 = MAPPO.load(model_path_0, env_agent_id="agent_0")
+
+
+from light_malib.registry.registration import QMix
+policy_0 = QMix('QMix', None, None,cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
+
+# policy_0 = MAPPO.load(model_path_0, env_agent_id="agent_0")
 policy_1 = MAPPO.load(model_path_1, env_agent_id="agent_1")
 
 env = GRFootballEnv(0, None, cfg.rollout_manager.worker.envs[0])
@@ -92,7 +97,8 @@ for idx in range(total_run):
         behavior_policies=behavior_policies,
         data_server=None,
         rollout_length=cfg.rollout_manager.worker.eval_rollout_length,
-        render=False,
+        render=True,
+        rollout_epoch = 100,
     )
     for rollout_result in rollout_results["results"]:
         Logger.info("stats of model_0 is {}".format(rollout_result["stats"][agent]))

@@ -40,6 +40,8 @@ class EpisodeKey:
     NEXT_STATE = "next_state"  # next global state
     LAST_REWARD = "last_reward"
     RETURN = "return"
+    GLOBAL_STATE = "global_state"
+    NEXT_GLOBAL_STATE = 'next_global_state'
 
     # post process
     ACC_REWARD = "accumulate_reward"

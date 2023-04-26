@@ -87,7 +87,7 @@ def main():
         cfg.training_manager.batch_size, cfg.data_server.table_cfg.capacity
     )
     # check sync_training
-    if cfg.framework.sync_training:
+    if cfg.framework.sync_training and cfg.framework.get('on_policy', True):
         assert cfg.data_server.table_cfg.sample_max_usage==1
         assert cfg.training_manager.batch_size==cfg.rollout_manager.batch_size
         assert cfg.rollout_manager.worker.sample_length<=0
