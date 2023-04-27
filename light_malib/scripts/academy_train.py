@@ -111,9 +111,11 @@ for idx in range(5):
         env=env,
         behavior_policies=behavior_policies,
         data_server=datasever,
-        rollout_length=200,
+        rollout_length=cfg.rollout_manager.worker.rollout_length,
+        sample_length=cfg.rollout_manager.worker.sample_length,
         render=False,
-        rollout_epoch=100
+        rollout_epoch=100,
+        episode_mode=cfg.rollout_manager.worker.episode_mode,
     )
     Logger.info("stats of model_0 is {}".format(rollout_results['results'][0]["stats"][agent]))
     # total_win += rollout_results["stats"][agent]["win"]

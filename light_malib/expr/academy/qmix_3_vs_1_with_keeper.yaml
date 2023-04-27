@@ -151,13 +151,14 @@ training_manager:
         resources:
           - ["node:${distributed.nodes.master.ip}",0.01]
     optimizer: "Adam"
-    actor_lr: 5.e-4
-    critic_lr: 5.e-4
+    lr: 5.e-4
     opti_eps: 1.e-5
     weight_decay: 0.0
     lr_decay: False            #update_linear_schedule
     lr_decay_epoch: 2000      #how many rollout steps till zero
     max_grad_norm: 10
+    tau: 0.5
+    target_update_freq: 10
 
 data_server:
   distributed:
@@ -206,13 +207,13 @@ populations:
         epsilon_anneal_time: 1000
         prev_act_inp: False
         double_q: True
-        target_update_freq: 10
+        loss_compute_mode: ${rollout_manager.worker.episode_mode}
 
         local_q_config:
-          n_agent: 1          #1 if parameter-sharing
+          n_agent:  3         #1 if parameter-sharing
           use_orthogonal: True
           hidden_size: 128
-          use_rnn_layer: True
+          use_rnn_layer: False
           recurrent_N: 1
           gain: 1.
           use_feature_normalization: True

@@ -53,7 +53,8 @@ class QMixTrainer(Trainer):
         policy = self.loss.policy
         global_timer.record("move_to_gpu_start")
 
-        batch = drop_bootstraping_data(batch)
+        if len(batch[EpisodeKey.CUR_OBS].shape)==4:         #if traj mode
+            batch = drop_bootstraping_data(batch)
         # move data to gpu
         for key,value in batch.items():
             if isinstance(value,np.ndarray):

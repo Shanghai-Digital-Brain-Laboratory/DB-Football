@@ -129,10 +129,16 @@ def simple_team_data_generator(data, num_mini_batch, device, shuffle=False):
         yield {k: v for k, v in tmp_batch.items()}
 
 def dummy_data_generator(data, num_mini_batch, device, shuffle=False):
-    assert len(data[EpisodeKey.CUR_OBS].shape) == 4, "{}".format(
-        {k: v.shape for k, v in data.items()}
-    )
-    batch_size, len_traj, n_agent, _ = data[EpisodeKey.CUR_OBS].shape
+    # assert len(data[EpisodeKey.CUR_OBS].shape) == 4, "{}".format(
+    #     {k: v.shape for k, v in data.items()}
+    # )
+    if len(data[EpisodeKey.CUR_OBS].shape)==4:
+        batch_size, len_traj, n_agent, _ = data[EpisodeKey.CUR_OBS].shape
+    elif len(data[EpisodeKey.CUR_OBS].shape)==3:
+        batch_size, n_agent, _ = data[EpisodeKey.CUR_OBS].shape
+    else:
+        raise NotImplementedError
+
     if num_mini_batch == 1:
 
         yield data
