@@ -39,8 +39,10 @@ class RNNNet(nn.Module):
             use_feature_normalization=custom_config["use_feature_normalization"],
         )
         fc_last_hidden = model_config["layers"][-1]["units"]
+        self.feat_dim = fc_last_hidden
 
-        act_dim = act_dim = get_preprocessor(action_space)(action_space).size
+        act_dim = get_preprocessor(action_space)(action_space).size
+        self.act_dim = act_dim
         self.out = nn.Linear(fc_last_hidden, act_dim)
 
         use_orthogonal = initialization["use_orthogonal"]

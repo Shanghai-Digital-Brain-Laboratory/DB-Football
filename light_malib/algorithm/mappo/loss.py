@@ -70,7 +70,7 @@ class MAPPOLoss(LossFunc):
         self.sub_algorithm_name = policy.custom_config.get("sub_algorithm_name","MAPPO")   
         assert self.sub_algorithm_name in ["MAPPO","CoPPO","HAPPO","A2PO"]
         
-        if self.sub_algorithm_name=="MAPPO":
+        if self.sub_algorithm_name in ["IPPO","MAPPO"]:
             self._use_seq=False
             self._use_two_stage=False
             self._use_co_ma_ratio=False
@@ -276,7 +276,7 @@ class MAPPOLoss(LossFunc):
             dist_entropy = self._select_data_from_agent_ids(dist_entropy, agent_ids)
             
             # CoPPO, A2PO
-            if not self._clip_before_prod:
+            if self._use_co_ma_ratio and not self._clip_before_prod:
                 imp_weights = imp_weights * other_agents_prod_imp_weights
         
             surr1 = imp_weights * adv_targ
@@ -286,7 +286,7 @@ class MAPPOLoss(LossFunc):
             )
             
             # HAPPO
-            if self._clip_before_prod:
+            if self._use_co_ma_ratio and self._clip_before_prod:
                 surr1 = surr1 * other_agents_prod_imp_weights
                 surr2 = surr2 * other_agents_prod_imp_weights
 
