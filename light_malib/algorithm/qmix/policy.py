@@ -147,7 +147,7 @@ class QMix(Policy):
         self.action_space = self.feature_encoder.action_space #Discrete(19)
         self.act_dim = self.action_space.n
         self.output_dim = sum(self.act_dim) if isinstance(self.act_dim, np.ndarray) else self.act_dim
-        self.hidden_size = 128
+        self.hidden_size = model_config['hidden_size']
         self.central_obs_dim = 115 #policy_config["cent_obs_dim"]
         self.discrete = True
         self.multidiscrete = False

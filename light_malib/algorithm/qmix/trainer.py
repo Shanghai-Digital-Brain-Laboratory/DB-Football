@@ -71,11 +71,9 @@ class QMixTrainer(Trainer):
         data_iter = data_generator_fn()
         for i in range(num_mini_batch):
             global_timer.record("data_generator_start")
-
             mini_batch = next(data_iter)
             global_timer.time("data_generator_start","data_generator_end","data_generator")
             global_timer.record("loss_start")
-            # breakpoint()
             tmp_opt_result = self.loss(mini_batch)
             global_timer.time("loss_start","loss_end","loss")
 
