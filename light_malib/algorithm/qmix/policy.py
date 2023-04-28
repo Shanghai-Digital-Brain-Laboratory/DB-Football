@@ -92,8 +92,25 @@ def soft_update(target, source, tau):
         target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
 
 
+
+class CriticList(nn.Module):
+    def __init__(self, critic_list):
+        super(CriticList, self).__init__()
+
+        self.critic_list = nn.ModuleList(critic_list)
+
+    def forward(self, id, obs, rnn_states):
+        ret = self.critic_list[id](obs, rnn_states)
+        return ret
+
+    def __getitem__(self, item):
+        return self.critic_list[item]
+
+    def __len__(self):
+        return len(self.critic_list)
+
 @registry.registered(registry.POLICY)
-class QMix(nn.Module):
+class QMix(Policy):
 
     def __init__(
             self,
@@ -127,8 +144,8 @@ class QMix(nn.Module):
         # self.encoder = FeatureEncoder(num_players=6)
         self.observation_space = self.feature_encoder.observation_space
         self.obs_dim = self.observation_space.shape[0]
-        self.action_space = Discrete(19)
-        self.act_dim = 19 #action_space.n
+        self.action_space = self.feature_encoder.action_space #Discrete(19)
+        self.act_dim = self.action_space.n
         self.output_dim = sum(self.act_dim) if isinstance(self.act_dim, np.ndarray) else self.act_dim
         self.hidden_size = 128
         self.central_obs_dim = 115 #policy_config["cent_obs_dim"]
@@ -139,12 +156,18 @@ class QMix(nn.Module):
         assert self.rnn_layer_num == 1, print('only support one rnn layer number')
 
         self.model_config=  model_config
-        self.custom_config = custom_config
+        # self.custom_config = custom_config
 
         self.use_cds = False
 
-
-        super().__init__()
+        # self.custom_config['preprocess_mode']='flatten'
+        super(QMix, self).__init__(
+            registered_name=registered_name,
+            observation_space=self.observation_space,
+            action_space=self.action_space,
+            model_config=model_config,
+            custom_config=custom_config,
+        )
 
         if self.prev_act_inp:
             # this is only local information so the agent can act decentralized
@@ -159,13 +182,11 @@ class QMix(nn.Module):
             self.target_critic = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
 
         else:
-            self.critic = [AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
-                           for _ in range(self.n_agent)]
-            self.target_critic = [AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
-                           for _ in range(self.n_agent)]
+            self.critic = CriticList([AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
+                           for _ in range(self.n_agent)])
+            self.target_critic = CriticList([AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
+                           for _ in range(self.n_agent)])
             for i in range(len(self.critic)):
-                self.register_module(f'critic_{i}', self.critic[i])
-                self.register_module(f"target_critic_{i}", self.target_critic[i])
                 hard_update(self.target_critic[i], self.critic[i])
 
         # self.critic2 = AgentQFunction(custom_config.local_q_config, self.q_network_input_dim, self.act_dim)
@@ -175,9 +196,9 @@ class QMix(nn.Module):
                                   custom_config,
                                   model_config["initialization"],)
 
-        self.exploration = DecayThenFlatSchedule(self.custom_config.epsilon_start,
-                                                 self.custom_config.epsilon_finish,
-                                                 self.custom_config.epsilon_anneal_time,
+        self.exploration = DecayThenFlatSchedule(self.custom_config['epsilon_start'],
+                                                 self.custom_config['epsilon_finish'],
+                                                 self.custom_config['epsilon_anneal_time'],
                                                  decay='linear')
         self.current_eps = 0
 
@@ -218,9 +239,24 @@ class QMix(nn.Module):
 
     def to_device(self, device):
         self_copy = copy.deepcopy(self)
-        self_copy.to(device)
         self_copy.device = device
+        self_copy.critic = self_copy.critic.to(device)
+        self_copy.target_critic = self_copy.target_critic.to(device)
+
         return self_copy
+
+    def train(self):
+        self.critic.train()
+        self.target_critic.train()
+
+
+    def eval(self):
+        self.critic.eval()
+        self.target_critic.eval()
+
+    def value_function(self, *args, **kwargs):
+        pass
+
 
     def get_initial_state(self, batch_size):
 
