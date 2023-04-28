@@ -52,6 +52,7 @@ class EpisodeKey:
     RNN_STATE = "rnn_state"
     ACTOR_RNN_STATE = "ACTOR_RNN_STATE"
     CRITIC_RNN_STATE = "CRITIC_RNN_STATE"
+    NEXT_CRITIC_RNN_STATE = "NEXT_CRITIC_RNN_STATE"
 
     # expert
     EXPERT_OBS = "expert_obs"

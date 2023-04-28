@@ -69,7 +69,11 @@ class DistributedPolicyWrapper:
         return self._policy.to_device(device)
     
     def __getattr__(self, key: str):
-        return self.policy.__getattribute__(key)
+        try:
+            return self.policy.__getattribute__(key)
+        except AttributeError:
+            return self.policy.__getattr__(key)
+
 
 class DistributedTrainer:
     def __init__(

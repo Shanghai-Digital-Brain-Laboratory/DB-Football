@@ -25,32 +25,36 @@ import argparse
 from light_malib.buffer.data_server import DataServer
 from light_malib.utils.naming import default_table_name
 
+import os
+import pathlib
+BASE_DIR = str(pathlib.Path(__file__).resolve().parent.parent.parent)
+
 
 parser = argparse.ArgumentParser(
     description="play google research football competition"
 )
 parser.add_argument(
-    "--config", type=str, default="/home/yansong/Desktop/football_new/DB-Football/light_malib/expr/qmix/expr_3_vs_1_with_keeper_qmix.yaml"
+    "--config", type=str, default="light_malib/expr/qmix/expr_3_vs_1_with_keeper_qmix.yaml"
 )
 parser.add_argument(
     "--model_0",
     type=str,
-    default="/home/yansong/Desktop/football_new/DB-Football/logs/gr_football/academy_3_vs_1_with_keeper/2023-04-03-02-01-10/agent_0/agent_0-default-1/epoch_83000",
+    default="logs/gr_football/academy_3_vs_1_with_keeper/2023-04-03-02-01-10/agent_0/agent_0-default-1/epoch_83000",
 )
 parser.add_argument(
     "--model_1",
     type=str,
-    default="/home/yansong/Desktop/football_new/DB-Football/light_malib/trained_models/gr_football/11_vs_11/built_in",
+    default="light_malib/trained_models/gr_football/11_vs_11/built_in",
 )
 parser.add_argument("--render", default=False, action="store_true")
 parser.add_argument("--total_run", default=1, type=int)
 args = parser.parse_args()
 
 config_path = args.config
-model_path_0 = args.model_0
-model_path_1 = args.model_1
+model_path_0 = os.path.join(BASE_DIR, args.model_0)
+model_path_1 = os.path.join(BASE_DIR, args.model_1)
 
-cfg = load_cfg(config_path)
+cfg = load_cfg(os.path.join(BASE_DIR, config_path))
 cfg["rollout_manager"]["worker"]["envs"][0]["scenario_config"]["render"] = args.render
 
 policy_id_0 = "policy_0"
@@ -107,9 +111,11 @@ for idx in range(5):
         env=env,
         behavior_policies=behavior_policies,
         data_server=datasever,
-        rollout_length=200,
+        rollout_length=cfg.rollout_manager.worker.rollout_length,
+        sample_length=cfg.rollout_manager.worker.sample_length,
         render=False,
-        rollout_epoch=100
+        rollout_epoch=100,
+        episode_mode=cfg.rollout_manager.worker.episode_mode,
     )
     Logger.info("stats of model_0 is {}".format(rollout_results['results'][0]["stats"][agent]))
     # total_win += rollout_results["stats"][agent]["win"]
@@ -149,6 +155,19 @@ stack_samples = stack(samples)
 
 class trainer_cfg:
     policy = policy_0
+
+# from light_malib.training.distributed_trainer import DistributedTrainer
+# from light_malib.utils.naming import default_trainer_id
+# dis_trainer = [DistributedTrainer(id=default_trainer_id(idx),
+#                                   local_rank=idx,
+#                                   world_size=cfg.training_manager.num_trainers,
+#                                   master_addr=cfg.training_manager.master_addr,
+#                                   master_posrt=cfg.training_manager.master_port,
+#                                   master_ifname=cfg.training_manger.get("master_ifname", None),
+#                                   gpu_preload=cfg.training_manger.gpu_preload,
+#                                   local_queue_size=cfg.training_manager.local_queue_size,
+#                                   policy_server)]
+
 
 policy_0 = policy_0.to_device('cuda:0')
 

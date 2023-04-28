@@ -168,6 +168,42 @@ def submit_traj(data_server,step_data_list,last_step_data,rollout_desc,s_idx=Non
             [episode],
         )
 
+def submit_batches(data_server,episode, rollout_desc,credit_reassign_cfg=None,assist_info=None):
+    transitions = []
+    for step in range(len(episode) - 1):
+        transition = {
+            EpisodeKey.CUR_OBS: episode[step][EpisodeKey.CUR_OBS],  # [np.newaxis, ...],
+            EpisodeKey.ACTION_MASK: episode[step][EpisodeKey.ACTION_MASK],  # [np.newaxis, ...],
+            EpisodeKey.ACTION: episode[step][EpisodeKey.ACTION],  # [np.newaxis, ...],
+            EpisodeKey.REWARD: episode[step][EpisodeKey.REWARD],  # [np.newaxis, ...],
+            EpisodeKey.DONE: episode[step][EpisodeKey.DONE],  # [np.newaxis, ...],
+            EpisodeKey.NEXT_OBS: episode[step + 1][EpisodeKey.CUR_OBS],  # [np.newaxis, ...],
+            EpisodeKey.NEXT_ACTION_MASK: episode[step + 1][EpisodeKey.ACTION_MASK],  # [np.newaxis, ...]
+            EpisodeKey.CRITIC_RNN_STATE: episode[step][EpisodeKey.CRITIC_RNN_STATE],
+            EpisodeKey.NEXT_CRITIC_RNN_STATE: episode[step + 1][EpisodeKey.CRITIC_RNN_STATE],
+            EpisodeKey.GLOBAL_STATE: episode[step][EpisodeKey.GLOBAL_STATE],
+            EpisodeKey.NEXT_GLOBAL_STATE: episode[step + 1][EpisodeKey.GLOBAL_STATE]
+        }
+        transitions.append(transition)
+    if hasattr(data_server.save, 'remote'):
+        data_server.save.remote(
+            default_table_name(
+                rollout_desc.agent_id,
+                rollout_desc.policy_id,
+                rollout_desc.share_policies,
+            ),
+            transitions
+        )
+    else:
+        data_server.save(
+            default_table_name(
+                rollout_desc.agent_id,
+                rollout_desc.policy_id,
+                rollout_desc.share_policies,
+            ),
+            transitions
+        )
+
 
 
 
@@ -296,29 +332,29 @@ def rollout_func(
                         # update model:
                         behavior_policies=pull_policies(rollout_worker,policy_ids)
                     
-            elif episode_mode == 'time-step':
-                # used for off-policy algorithms
-                episode = step_data_list
-                transitions = []
-                for step in range(len(episode)-1):
-                    transition = {
-                        EpisodeKey.CUR_OBS: episode[step][EpisodeKey.CUR_OBS][np.newaxis, ...],
-                        EpisodeKey.ACTION_MASK: episode[step][EpisodeKey.ACTION_MASK][np.newaxis, ...],
-                        EpisodeKey.ACTION: episode[step][EpisodeKey.ACTION][np.newaxis, ...],
-                        EpisodeKey.REWARD: episode[step][EpisodeKey.REWARD][np.newaxis, ...],
-                        EpisodeKey.DONE: episode[step][EpisodeKey.DONE][np.newaxis, ...],
-                        EpisodeKey.NEXT_OBS: episode[step + 1][EpisodeKey.CUR_OBS][np.newaxis, ...],
-                        EpisodeKey.NEXT_ACTION_MASK: episode[step + 1][EpisodeKey.ACTION_MASK][np.newaxis, ...]
-                    }
-                    transitions.append(transition)
-                data_server.save.remote(
-                    default_table_name(
-                        rollout_desc.agent_id,
-                        rollout_desc.policy_id,
-                        rollout_desc.share_policies,
-                    ),
-                    transitions
-                )
+            # elif episode_mode == 'time-step':
+            #     # used for off-policy algorithms
+            #     episode = step_data_list
+            #     transitions = []
+            #     for step in range(len(episode)-1):
+            #         transition = {
+            #             EpisodeKey.CUR_OBS: episode[step][EpisodeKey.CUR_OBS][np.newaxis, ...],
+            #             EpisodeKey.ACTION_MASK: episode[step][EpisodeKey.ACTION_MASK][np.newaxis, ...],
+            #             EpisodeKey.ACTION: episode[step][EpisodeKey.ACTION][np.newaxis, ...],
+            #             EpisodeKey.REWARD: episode[step][EpisodeKey.REWARD][np.newaxis, ...],
+            #             EpisodeKey.DONE: episode[step][EpisodeKey.DONE][np.newaxis, ...],
+            #             EpisodeKey.NEXT_OBS: episode[step + 1][EpisodeKey.CUR_OBS][np.newaxis, ...],
+            #             EpisodeKey.NEXT_ACTION_MASK: episode[step + 1][EpisodeKey.ACTION_MASK][np.newaxis, ...]
+            #         }
+            #         transitions.append(transition)
+            #     data_server.save.remote(
+            #         default_table_name(
+            #             rollout_desc.agent_id,
+            #             rollout_desc.policy_id,
+            #             rollout_desc.share_policies,
+            #         ),
+            #         transitions
+            #     )
                     
         ##### check if  env ends #####
         if env.is_terminated():
@@ -345,8 +381,13 @@ def rollout_func(
     
     if not eval and sample_length <= 0:            #collect after rollout done
         # used for the academy
-        submit_traj(data_server,step_data_list,step_data,rollout_desc)   
-            
+        if episode_mode == 'traj':
+            submit_traj(data_server,step_data_list,step_data,rollout_desc)
+        elif episode_mode == 'time-step':
+            submit_batches(data_server, step_data_list, rollout_desc)
+
+
+
     results={"results":results}            
     return results
 
