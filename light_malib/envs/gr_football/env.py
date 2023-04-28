@@ -159,6 +159,11 @@ class GRFootballEnv(BaseEnv):
 
         global_timer.record("env_core_step_start")
         observations, rewards, done, info = self._env.step(actions)
+
+        # official rewards should be shared
+        for agent_id in self.agent_ids:
+            rewards[self.slices[agent_id]]=np.sum(rewards[self.slices[agent_id]])
+
         self.done = done
 
         global_timer.time("env_core_step_start", "env_core_step_end", "env_core_step")
@@ -334,7 +339,7 @@ class GRFootballEnv(BaseEnv):
                 )
 
     def get_episode_stats(self):
-        return_stats = {
+        return {
             agent_id: self.stats_calculators[agent_id].stats
             for agent_id in self.agent_ids
         }
