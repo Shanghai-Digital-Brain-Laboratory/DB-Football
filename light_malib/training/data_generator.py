@@ -132,8 +132,12 @@ def dummy_data_generator(data, num_mini_batch, device, shuffle=False):
     # )
     if len(data[EpisodeKey.CUR_OBS].shape)==4:
         batch_size, len_traj, n_agent, _ = data[EpisodeKey.CUR_OBS].shape
+        select_idx = 1
     elif len(data[EpisodeKey.CUR_OBS].shape)==3:
         batch_size, n_agent, _ = data[EpisodeKey.CUR_OBS].shape
+        if len(data[EpisodeKey.ACTION].shape)==2:
+            data[EpisodeKey.ACTION] = data[EpisodeKey.ACTION][:,:,np.newaxis]
+        select_idx = -2
     else:
         raise NotImplementedError
 
@@ -162,7 +166,7 @@ def dummy_data_generator(data, num_mini_batch, device, shuffle=False):
             # batch_size,n_agent,...
             # -> batch_size*n_agent,...
             tmp_batch[k] = data[k][indices]
-            tmp_batch[k] = tmp_batch[k].reshape(-1, *tmp_batch[k].shape[2:])
+            tmp_batch[k] = tmp_batch[k].reshape(-1, *tmp_batch[k].shape[select_idx:])
         yield {k: v for k, v in tmp_batch.items()}
 
 

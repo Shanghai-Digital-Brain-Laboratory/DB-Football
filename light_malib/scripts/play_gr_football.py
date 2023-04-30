@@ -22,11 +22,16 @@ import numpy as np
 import pickle as pkl
 import argparse
 
+import os
+import pathlib
+BASE_DIR = str(pathlib.Path(__file__).resolve().parent.parent.parent)
+
+
 parser = argparse.ArgumentParser(
     description="play google research football competition"
 )
 parser.add_argument(
-    "--config", type=str, default="/home/yansong/Desktop/football_new/DB-Football/light_malib/expr/qmix/expr_3_vs_1_with_keeper_qmix.yaml"
+    "--config", type=str, default="light_malib/expr/competition/expr_10_vs_10_psro.yaml"
 )
 parser.add_argument(
     "--model_0",
@@ -36,7 +41,7 @@ parser.add_argument(
 parser.add_argument(
     "--model_1",
     type=str,
-    default="/home/yansong/Desktop/football_new/DB-Football/light_malib/trained_models/gr_football/5_vs_5/built_in",
+    default="light_malib/trained_models/gr_football/5_vs_5/built_in",
 )
 parser.add_argument("--render", default=False, action="store_true")
 parser.add_argument("--total_run", default=1, type=int)
@@ -46,6 +51,11 @@ config_path = args.config
 model_path_0 = args.model_0
 model_path_1 = args.model_1
 
+config_path = os.path.join(BASE_DIR, config_path)
+model_path_0 = os.path.join(BASE_DIR,model_path_0)
+model_path_1 = os.path.join(BASE_DIR, model_path_1)
+
+
 cfg = load_cfg(config_path)
 cfg["rollout_manager"]["worker"]["envs"][0]["scenario_config"]["render"] = args.render
 
@@ -53,10 +63,10 @@ policy_id_0 = "policy_0"
 policy_id_1 = "policy_1"
 
 
-from light_malib.registry.registration import QMix
-policy_0 = QMix('QMix', None, None,cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
+# from light_malib.registry.registration import QMix
+# policy_0 = QMix('QMix', None, None,cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
 
-# policy_0 = MAPPO.load(model_path_0, env_agent_id="agent_0")
+policy_0 = MAPPO.load(model_path_0, env_agent_id="agent_0")
 policy_1 = MAPPO.load(model_path_1, env_agent_id="agent_1")
 
 env = GRFootballEnv(0, None, cfg.rollout_manager.worker.envs[0])

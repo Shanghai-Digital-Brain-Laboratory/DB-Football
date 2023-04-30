@@ -153,6 +153,10 @@ for i in range(len(data_list[0])):
 
 stack_samples = stack(samples)
 
+for i, j in stack_samples.items():
+    stack_samples[i] = np.repeat(j, [1000], axis=0)
+
+
 class trainer_cfg:
     policy = policy_0
 

@@ -57,11 +57,11 @@ class QMixTrainer(Trainer):
         if len(batch[EpisodeKey.CUR_OBS].shape)==4:         #if traj mode
             batch = drop_bootstraping_data(batch)
         # move data to gpu
-        for key,value in batch.items():
-            if isinstance(value,np.ndarray):
-                value=torch.FloatTensor(value)
-            batch[key]=value.to(policy.device)
-        global_timer.time("move_to_gpu_start","move_to_gpu_end","move_to_gpu")
+        # for key,value in batch.items():
+        #     if isinstance(value,np.ndarray):
+        #         value=torch.FloatTensor(value)
+        #     batch[key]=value.to(policy.device)
+        # global_timer.time("move_to_gpu_start","move_to_gpu_end","move_to_gpu")
 
         num_mini_batch=policy.custom_config["num_mini_batch"]
         data_generator_fn = functools.partial(
@@ -72,9 +72,16 @@ class QMixTrainer(Trainer):
         for i in range(num_mini_batch):
             global_timer.record("data_generator_start")
             mini_batch = next(data_iter)
+
+            for key,value in mini_batch.items():
+                if isinstance(value,np.ndarray):
+                    value=torch.FloatTensor(value)
+                mini_batch[key]=value.to(policy.device)
+
+
             global_timer.time("data_generator_start","data_generator_end","data_generator")
             global_timer.record("loss_start")
-            tmp_opt_result = self.loss(mini_batch)
+            tmp_opt_result = self.loss(mini_batch, batch_idx = np.array([(i+1)/num_mini_batch]))
             global_timer.time("loss_start","loss_end","loss")
 
             for k, v in tmp_opt_result.items():

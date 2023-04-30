@@ -98,11 +98,13 @@ class QMIXLoss(LossFunc):
             raise NotImplementedError("loss compute mode not implemented")
 
 
-    def loss_compute_batch(self, sample):
-        self.step_ctr += 1
+    def loss_compute_batch(self, sample, **kwargs):
+        # self.step_ctr += 1
         self.loss = []
         policy = self._policy
         individual_critic = (policy.custom_config['local_q_config']['n_agent']>1) #(isinstance(policy.critic, list) or isinstance(policy.critic, torch.nn.ModuleList))
+
+        batch_idx = kwargs['batch_idx'].item()
 
         policy.train()
         (
@@ -130,7 +132,8 @@ class QMIXLoss(LossFunc):
             sample[EpisodeKey.CRITIC_RNN_STATE],         #[batch_size,  1, num_agents, hidden_state],
             sample[EpisodeKey.NEXT_CRITIC_RNN_STATE]
         )
-        actions = actions.unsqueeze(-1)
+        if len(observations.shape) > len(actions.shape):
+            actions = actions.unsqueeze(-1)
             #[batch_size, traj_length, num_agents, feat_dim]
         bz, num_agents, _ = observations.shape
         mac_out = []
@@ -258,27 +261,35 @@ class QMIXLoss(LossFunc):
         for i, j in self.mixer.named_parameters():
             grad_dict[f"grad/mixer/{i}"] = j.grad.mean().detach().cpu().numpy()
 
-        self.optimizers.step()
+        if batch_idx == 1:
+            self.step_ctr += 1
+            self.optimizers.step()
 
-        if self.step_ctr % self._params['target_update_freq'] == 0:
-            self.update_target(individual_critic)
+            if self.step_ctr % self._params['target_update_freq'] == 0:
+                self.update_target(individual_critic)
 
-        ret = {
-            "mixer_loss": loss.detach().cpu().numpy(),
-            "value": chosen_action_qvals.mean().detach().cpu().numpy(),
-            "target_value": targets.mean().detach().cpu().numpy(),
-        }
-        ret.update(grad_dict)
+            ret = {
+                "mixer_loss": loss.detach().cpu().numpy(),
+                "value": chosen_action_qvals.mean().detach().cpu().numpy(),
+                "target_value": targets.mean().detach().cpu().numpy(),
+            }
+            ret.update(grad_dict)
+            return ret
+        else:
+            return {}
 
-        return ret
+        # return ret
 
 
-    def loss_compute_traj(self, sample):
-        self.step_ctr += 1
+    def loss_compute_traj(self, sample, **kwargs):
+        # self.step_ctr += 1
         self.loss = []
         policy = self._policy
         individual_critic = (policy.custom_config['local_q_config']['n_agent']>1)
         policy.train()
+
+        batch_idx = kwargs['batch_idx'].item()
+
         (
             state,
             observations,
@@ -296,8 +307,9 @@ class QMIXLoss(LossFunc):
             sample[EpisodeKey.DONE],
             sample[EpisodeKey.CRITIC_RNN_STATE]         #[batch_size, traj_length, 1, num_agents, hidden_state]
         )
-
-        actions = actions.unsqueeze(-1)
+        if len(observations.shape) > len(actions.shape):
+            actions = actions.unsqueeze(-1)
+        # actions = actions.unsqueeze(-1)
             #[batch_size, traj_length, num_agents, feat_dim]
         bz, traj_length, num_agents, _ = observations.shape
         # Calculate estimated Q-values
@@ -389,19 +401,23 @@ class QMIXLoss(LossFunc):
         for i, j in self.mixer.named_parameters():
             grad_dict[f"grad/mixer/{i}"] = j.grad.mean().detach().cpu().numpy()
 
-        self.optimizers.step()
+        if batch_idx == 1:
+            self.step_ctr += 1
+            self.optimizers.step()
 
-        if self.step_ctr % self._params['target_update_freq'] == 0:
-            self.update_target(individual_critic)
+            if self.step_ctr % self._params['target_update_freq'] == 0:
+                self.update_target(individual_critic)
 
-        ret = {
-            "mixer_loss": loss.detach().cpu().numpy(),
-            "value": chosen_action_qvals.mean().detach().cpu().numpy(),
-            "target_value": targets.mean().detach().cpu().numpy(),
-        }
-        ret.update(grad_dict)
+            ret = {
+                "mixer_loss": loss.detach().cpu().numpy(),
+                "value": chosen_action_qvals.mean().detach().cpu().numpy(),
+                "target_value": targets.mean().detach().cpu().numpy(),
+            }
+            ret.update(grad_dict)
+            return ret
+        else:
+            return {}
 
-        return ret
 
 
 def soft_update(target, source, tau):
