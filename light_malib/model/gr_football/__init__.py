@@ -14,7 +14,9 @@
 from . import built_in
 from . import basic
 from . import basic_enhanced
+from . import enhanced_LightActionMask_5
 from ._legacy import enhanced_extended, enhanced_LightActionMask_11
+from ._legacy.enhanced_LightActionMask_11 import PartialLayernorm
 import sys
 import functools
 
@@ -26,10 +28,14 @@ def partial_class(cls, *args, **kwargs):
 
 # TODO(jh): the following implementation may be temporary and for backward compatibility.
 class ModelWrapper:
-    def __init__(self,Actor,Critic,FeatureEncoder) -> None:
+    def __init__(self,Actor,Critic,FeatureEncoder, **kwargs) -> None:
         self.Actor=Actor
         self.Critic=Critic
         self.FeatureEncoder=FeatureEncoder
+        for attr_name, obj in kwargs.items():
+            setattr(self, attr_name, obj)
+
+        self.__name__ = 'model_wrapper'
 
 sys.modules["light_malib.model.gr_football.built_in_5"]=built_in
 sys.modules["light_malib.model.gr_football.built_in_11"]=built_in
@@ -38,6 +44,15 @@ sys.modules["light_malib.model.gr_football.basic_5"]=ModelWrapper(
     basic.Critic,
     partial_class(basic.FeatureEncoder,num_players=5*2)
 )
+
+sys.modules["light_malib.model.gr_football.enhanced_LightActionMask_5"]=ModelWrapper(
+    enhanced_LightActionMask_5.Actor,
+    enhanced_LightActionMask_5.Critic,
+    enhanced_LightActionMask_5.FeatureEncoder
+)
+
+
+
 sys.modules["light_malib.model.gr_football.basic_11"]=ModelWrapper(
     basic.Actor,
     basic.Critic,
@@ -51,10 +66,12 @@ sys.modules["light_malib.model.gr_football.basic_enhanced_11"]=ModelWrapper(
 sys.modules["light_malib.model.gr_football.enhanced_LightActionMask_11"]=ModelWrapper(
     enhanced_LightActionMask_11.Actor,
     enhanced_LightActionMask_11.Critic,
-    enhanced_LightActionMask_11.FeatureEncoder
+    enhanced_LightActionMask_11.FeatureEncoder,
+    PartialLayernorm = PartialLayernorm
 )
 sys.modules["light_malib.model.gr_football.enhanced_extended"]=ModelWrapper(
     enhanced_extended.Actor,
     enhanced_extended.Critic,
-    enhanced_extended.FeatureEncoder
+    enhanced_extended.FeatureEncoder,
+    PartialLayernorm=PartialLayernorm
 )

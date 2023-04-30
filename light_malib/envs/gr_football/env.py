@@ -107,7 +107,11 @@ class GRFootballEnv(BaseEnv):
         observations = self._env.reset()
         global_timer.time("env_step_start", "env_step_end", "env_step")
 
-        self.states = [State() for i in range(self.num_players_total)]
+        if '5_vs_5' in self.cfg["scenario_config"]['env_name'] or '4_vs_4' in self.cfg["scenario_config"]['env_name']:
+            self.states = [State(n_player=5) for i in range(self.num_players_total)]
+        else:
+            self.states = [State() for i in range(self.num_players_total)]
+
         self.tracer = MatchTracer()
         self.tracer.update_settings(
             {
