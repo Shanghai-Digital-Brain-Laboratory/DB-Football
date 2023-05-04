@@ -245,7 +245,7 @@ class QMIXLoss(LossFunc):
 
         grad_dict = {}
         # Optimise
-        self.optimizers.zero_grad()
+        # self.optimizers.zero_grad()
         loss.backward()
         # if not individual_critic:
 
@@ -264,6 +264,7 @@ class QMIXLoss(LossFunc):
         if batch_idx == 1:
             self.step_ctr += 1
             self.optimizers.step()
+            self.optimizers.zero_grad()
 
             if self.step_ctr % self._params['target_update_freq'] == 0:
                 self.update_target(individual_critic)
@@ -386,7 +387,7 @@ class QMIXLoss(LossFunc):
 
         grad_dict = {}
         # Optimise
-        self.optimizers.zero_grad()
+        # self.optimizers.zero_grad()
         loss.backward()
 
         torch.nn.utils.clip_grad_norm_(
@@ -404,6 +405,7 @@ class QMIXLoss(LossFunc):
         if batch_idx == 1:
             self.step_ctr += 1
             self.optimizers.step()
+            self.optimizers.zero_grad()
 
             if self.step_ctr % self._params['target_update_freq'] == 0:
                 self.update_target(individual_critic)

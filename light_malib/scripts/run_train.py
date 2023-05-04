@@ -21,6 +21,7 @@ from light_malib.utils.logger import Logger
 import numpy as np
 import pickle as pkl
 import argparse
+import copy
 
 from light_malib.buffer.data_server import DataServer
 from light_malib.utils.naming import default_table_name
@@ -34,7 +35,7 @@ parser = argparse.ArgumentParser(
     description="play google research football competition"
 )
 parser.add_argument(
-    "--config", type=str, default="light_malib/expr/qmix/expr_3_vs_1_with_keeper_qmix.yaml"
+    "--config", type=str, default="light_malib/expr/bc/expr_full_game_4_vs_4_bc.yaml"
 )
 parser.add_argument(
     "--model_0",
@@ -62,8 +63,11 @@ policy_id_1 = "policy_1"
 
 # from light_malib.registry.registration import QMix
 # policy_0 = QMix('QMix', None, None, cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
-from light_malib.registry.registration import QMix
-policy_0 = QMix('QMix', None, None, cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
+from light_malib.registry.registration import QMix, MAPPO, BC
+# policy_0 = QMix('QMix', None, None, cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
+# policy_0 = MAPPO('MAPPO', None, None, cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config,
+#                  env_agent_id='agent_0')
+policy_0 = BC("BC", None, None, cfg.populations[0].algorithm.model_config, cfg.populations[0].algorithm.custom_config)
 
 # policy_0 = MAPPO.load(model_path_0, env_agent_id="agent_0")
 policy_1 = MAPPO.load(model_path_1, env_agent_id="agent_1")
@@ -80,13 +84,17 @@ table_name = default_table_name(
 )
 datasever.create_table(table_name)
 
-from light_malib.algorithm.qmix.trainer import QMixTrainer
-trainer = QMixTrainer('trainer_1')
+# from light_malib.algorithm.qmix.trainer import QMixTrainer
+# trainer = QMixTrainer('trainer_1')
+# from light_malib.algorithm.mappo.trainer import MAPPOTrainer
+# trainer = MAPPOTrainer('trainer_1')
+from light_malib.registry.registration import BCTrainer
+trainer = BCTrainer('trainer_1')
 
 total_run = args.total_run
 total_win = 0
 offset = np.random.randint(0, 2)
-for idx in range(5):
+for idx in range(1):
     env = GRFootballEnv(0, None, cfg.rollout_manager.worker.envs[0])
     rollout_desc = RolloutDesc("agent_0", None, None, None, None, None)
 
@@ -111,8 +119,8 @@ for idx in range(5):
         env=env,
         behavior_policies=behavior_policies,
         data_server=datasever,
-        rollout_length=cfg.rollout_manager.worker.rollout_length,
-        sample_length=cfg.rollout_manager.worker.sample_length,
+        rollout_length=500, #cfg.rollout_manager.worker.rollout_length,
+        sample_length=0, #cfg.rollout_manager.worker.sample_length,
         render=False,
         rollout_epoch=100,
         episode_mode=cfg.rollout_manager.worker.episode_mode,
@@ -123,7 +131,7 @@ Logger.warning("win rate of model_0 is {}".format(total_win / total_run))
 
 data_list = []
 for _ in range(1):
-    sample, _ = datasever.sample(table_name, batch_size = 2)
+    sample, _ = datasever.sample(table_name, batch_size = 1)
     data_list.append(sample)
 
 def stack(samples):
@@ -154,7 +162,7 @@ for i in range(len(data_list[0])):
 stack_samples = stack(samples)
 
 for i, j in stack_samples.items():
-    stack_samples[i] = np.repeat(j, [1000], axis=0)
+    stack_samples[i] = np.repeat(j, [10], axis=0)
 
 
 class trainer_cfg:

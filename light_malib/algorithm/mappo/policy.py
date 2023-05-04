@@ -126,7 +126,7 @@ class MAPPO(Policy):
         self.device = torch.device(
             "cuda" if custom_config.get("use_cuda", False) else "cpu"
         )
-        self.env_agent_id = kwargs["env_agent_id"]
+        # self.env_agent_id = kwargs["env_agent_id"]
         
         # TODO(jh): retrieve from feature encoder as well.
         # TODO(jh): this is not true in most cases, may be removed later.

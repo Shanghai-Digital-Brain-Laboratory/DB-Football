@@ -30,3 +30,16 @@ class Actor(RNNNet):
         action_log_probs = dist.log_prob(actions) # num_action
         
         return actions,  actor_rnn_states, action_log_probs, dist_entropy
+
+    def logits(self, obs, rnn_states, masks):
+        obs = torch.as_tensor(obs, dtype=torch.float32)
+        if rnn_states is not None:
+            rnn_states = torch.as_tensor(rnn_states, dtype=torch.float32)
+        feat = self.base(obs)
+        if self._use_rnn:
+            assert masks is not None
+            masks = torch.as_tensor(masks, dtype=torch.float32)
+            feat, rnn_states = self.rnn(feat, rnn_states, masks)
+
+        act_out = self.out(feat)
+        return act_out, rnn_states

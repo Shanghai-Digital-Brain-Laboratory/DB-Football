@@ -23,6 +23,11 @@ from light_malib.algorithm.qmix.policy import QMix
 from light_malib.algorithm.qmix.loss import QMIXLoss
 from light_malib.algorithm.qmix.trainer import QMixTrainer
 
+from light_malib.algorithm.bc.policy import BC
+from light_malib.algorithm.bc.loss import BCLoss
+from light_malib.algorithm.bc.trainer import BCTrainer
+
+
 from light_malib.envs.gr_football.env import GRFootballEnv
 
 from light_malib.framework.scheduler.stopper.common.win_rate_stopper import (
