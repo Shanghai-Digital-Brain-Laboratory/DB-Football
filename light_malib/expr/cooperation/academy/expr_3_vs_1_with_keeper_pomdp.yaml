@@ -1,5 +1,5 @@
 expr_group: gr_football
-expr_name: benchmark_academy_3_vs_1_with_keeper_mappo_pomdp
+expr_name: benchmark_academy_3_vs_1_with_keeper
 log_dir: ./logs             #log directory
 seed: 0
 eval_only: False            #True if only want evaluation
@@ -112,7 +112,11 @@ rollout_manager:
           goal_reward: 0
           official_reward: 1
     credit_reassign:
-
+      goal: 0
+      assist: 0
+      loseball: 0.
+      halt_loseball: 0.
+      gainball: 0
     decaying_exploration:
       init_noise: 0             #random exploration noise level
       total_epoch_to_zero: 2000    #number of epoch when exploration noise decay to zero
@@ -128,7 +132,7 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 20 # how many data sample from DatasetServer per time.
+  batch_size: ${rollout_manager.num_workers} # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
@@ -180,7 +184,7 @@ populations:
     algorithm:
       name: "MAPPO"
       model_config:
-        model: "gr_football.basic_centralized_critic_pool_obs"       # model type
+        model: "gr_football.pomdp"       # model type
         initialization:
           use_orthogonal: True
           gain: 1.
@@ -212,10 +216,6 @@ populations:
         FE_cfg:
           num_players: 6    #config sent to the Feature Encoder
           pomdp: True
-        sub_algorithm_name: MAPPO
-        num_agents: 3 
-        other_clip_param: 0.125
-
         gamma: 0.99
         use_cuda: False  # enable cuda or not
         use_q_head: False
@@ -241,6 +241,8 @@ populations:
         entropy_coef: 0.005
         clip_param: 0.2
         # kl_early_stop: 0.01
+
+        use_modified_mappo: False
 
       policy_init_cfg:
         agent_0: # agent_id

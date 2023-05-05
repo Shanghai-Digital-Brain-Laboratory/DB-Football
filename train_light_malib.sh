@@ -18,4 +18,4 @@
 
 #python light_malib/main_pbt.py --config light_malib/expr/bc/expr_full_game_4_vs_4_bc.yaml
 
-python light_malib/main_pbt.py --config light_malib/expr/mappo/expr_3_vs_1_with_keeper_pomdp_mappo.yaml
+python light_malib/main_pbt.py --config light_malib/expr/cooperation/academy/expr_3_vs_1_with_keeper_pomdp.yaml

@@ -28,6 +28,7 @@ class FeatureEncoder:
         self.action_n = 19
         self.use_action_gramma = False
         self.num_players = kwargs['num_players'] # the total number of players on the pitch
+        self.pomdp = kwargs.get('pomdp', False)
 
     def encode(self, states):
         feats = []
@@ -42,7 +43,10 @@ class FeatureEncoder:
 
     @property
     def observation_space(self):
-        return Box(low=-1000, high=1000, shape=[(self.num_players-1)*7+70])
+        if self.pomdp:
+            return Box(low=-1000, high=1000, shape=[70])
+        else:
+            return Box(low=-1000, high=1000, shape=[(self.num_players-1)*7+70])
     
     @property
     def action_space(self):
@@ -160,15 +164,24 @@ class FeatureEncoder:
         right_closest_idx = np.argmin(right_team_distance)
         right_closest_state = right_team_state[right_closest_idx]
 
-        state_dict = {
-            "player": player_state, # 19
-            "ball": ball_state, # 18
-            "left_team": left_team_state, # 7*(num_left_players-1)
-            "left_closest": left_closest_state, # 7
-            "right_team": right_team_state, # 7*num_right_players
-            "right_closest": right_closest_state, # 7
-            "avail": avail, # 19
-        }
+        if self.pomdp:
+            state_dict = {
+                "player": player_state,  # 19
+                "ball": ball_state,  # 18
+                "left_closest": left_closest_state,  # 7
+                "right_closest": right_closest_state,  # 7
+                "avail": avail,  # 19
+            }
+        else:
+            state_dict = {
+                "player": player_state, # 19
+                "ball": ball_state, # 18
+                "left_team": left_team_state, # 7*(num_left_players-1)
+                "left_closest": left_closest_state, # 7
+                "right_team": right_team_state, # 7*num_right_players
+                "right_closest": right_closest_state, # 7
+                "avail": avail, # 19
+            }
 
         feats = np.hstack(
             [
