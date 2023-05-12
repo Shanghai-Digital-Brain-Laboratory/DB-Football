@@ -191,7 +191,7 @@ populations:
     algorithm:
       name: "MAPPO"
       model_config:
-        model: "gr_football.basic"       # model type
+        model: "gr_football.basic_centralized_critic_pool_obs"       # model type
         initialization:
           use_orthogonal: True
           gain: 1.
