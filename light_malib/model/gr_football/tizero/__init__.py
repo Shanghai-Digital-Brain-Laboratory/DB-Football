@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import os
-from gym.spaces import Box
+from gym.spaces import Box, Discrete
 
 from .tartrl_policy import PolicyNetwork
 from .tartrl_utils import tartrl_obs_deal, _t2n
@@ -65,7 +65,7 @@ class Actor(nn.Module):
         for i in range(obs.shape[0]):
             each_obs = obs[i]
             encoded_obs = each_obs[19:]
-            encoded_obs = np.concatenate(encoded_obs.reshape(1,1,330))
+            encoded_obs = encoded_obs.reshape(1,330) #np.concatenate(encoded_obs.reshape(1,1,330))
             avail_actions = np.zeros(20)
             avail_actions[:19] = each_obs[:19]
             avail_actions = np.concatenate(avail_actions.reshape([1, 1, 20]))
@@ -79,7 +79,8 @@ class Actor(nn.Module):
             action_list.append(actions)
 
         action_list = torch.concatenate(action_list).squeeze(-1)
-        return action_list,torch.tensor(rnn_states),torch.ones_like(action_list)
+        return action_list,torch.tensor(rnn_states),torch.ones_like(action_list), torch.ones_like(action_list)
+
 
 class Critic(nn.Module):
     def __init__(
@@ -122,6 +123,19 @@ class FeatureEncoder:
         encoded_obs = np.stack(raw_obs)
 
         return encoded_obs
+    @property
+    def global_observation_space(self):
+        return Box(
+            low=-1,
+            high=1,
+            shape=[
+                20,
+            ],
+        )
+    @property
+    def action_space(self):
+        return Discrete(19)
+
 
     @property
     def observation_space(self):
