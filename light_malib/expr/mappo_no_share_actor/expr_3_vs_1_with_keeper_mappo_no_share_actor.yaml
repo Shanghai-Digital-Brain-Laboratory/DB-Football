@@ -1,5 +1,5 @@
 expr_group: gr_football
-expr_name: benchmark_academy_3_vs_1_with_keeper_ippo_no_share
+expr_name: benchmark_academy_3_vs_1_with_keeper_mappo_no_share_actor
 log_dir: ./logs             #log directory
 seed: 0
 eval_only: False            #True if only want evaluation
@@ -184,7 +184,7 @@ populations:
     algorithm:
       name: "MAPPO"
       model_config:
-        model: "gr_football.basic_no_share"       # model type
+        model: "gr_football.basic_centralized_critic_pool_obs_no_share_actor"       # model type
         initialization:
           use_orthogonal: True
           gain: 1.
