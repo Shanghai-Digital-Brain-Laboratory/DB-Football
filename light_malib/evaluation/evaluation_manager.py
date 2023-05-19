@@ -35,7 +35,7 @@ class EvaluationManager:
         self.elo_manager = EloManager(K=16)
         self.melo_manager = MEloManager(K=16)
 
-    def eval(self):
+    def eval(self,eval_more_metrics=False):
         # generate tasks from payoff matrix
         rollout_eval_desc = self.generate_rollout_tasks()
 
@@ -69,7 +69,7 @@ class EvaluationManager:
             eval_results, elo=list(self.elo_manager._elo_table.items())
         )
 
-        if self.cfg.eval_only:
+        if eval_more_metrics:
             payoff_matrix = self.policy_data_manager.get_matrix_data("payoff")
             # win_matrix = self.policy_data_manager.get_matrix_data('win')
             training_agent_id = self.policy_data_manager.agents.training_agent_ids[0]
