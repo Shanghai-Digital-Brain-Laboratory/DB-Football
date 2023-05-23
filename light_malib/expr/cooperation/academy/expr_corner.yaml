@@ -18,12 +18,12 @@ framework:
   name: "psro"                #framework name
   max_rounds: 1         #psro rounds
   meta_solver: "nash"         #'nash', 'uniform', 'pfsp'
-  sync_training: False        # TODO[jh]: on_policy, sync_off_policy, async_off_policy
+  sync_training: True   # TODO[jh]: on_policy, sync_off_policy, async_off_policy
   stopper:
     type: "win_rate_stopper"
     kwargs:
       min_win_rate: 1.1
-      max_steps: 100000          #iteration at each psro round
+      max_steps: 1100          #iteration at each psro round
 agent_manager:
   num_agents: 2
   share_policies: False
@@ -109,8 +109,8 @@ rollout_manager:
           other_config_options:
             action_set: v2  #default/v2, v2 is only used for built-in AI
         reward_config:
-          goal_reward: 10
-          official_reward: 0
+          goal_reward: 0
+          official_reward: 1
     credit_reassign:
       goal: 0
       assist: 0
@@ -132,13 +132,13 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 512 # how many data sample from DatasetServer per time.
+  batch_size: ${rollout_manager.batch_size} # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
       resources:
         num_cpus: 1
-  num_trainers: 8 # equals to number of GPUs by default
+  num_trainers: 1 # equals to number of GPUs by default
   # control the frequency of remote parameter update
   update_interval: 1
   gpu_preload: False
@@ -166,7 +166,7 @@ data_server:
   table_cfg:
     capacity: 1000
     sampler_type: "lumrf"
-    sample_max_usage: 10000
+    sample_max_usage: 1
     rate_limiter_cfg:
       min_size: ${training_manager.batch_size}
       # r_w_ratio: 10.0
@@ -215,10 +215,10 @@ populations:
       custom_config:
         FE_cfg:
           num_players: 22    #config sent to the Feature Encoder
-        gamma: 1.0
+        gamma: 0.995
         use_cuda: False  # enable cuda or not
         use_q_head: False
-        ppo_epoch: 5
+        ppo_epoch: 10
         num_mini_batch: 1  # the number of mini-batches
         
         return_mode: new_gae
