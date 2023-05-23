@@ -460,7 +460,7 @@ class RolloutManager:
     ##### Async Rollout END #####
     
     def get_global_step(self,rollout_epoch):
-        global_step=rollout_epoch*self.batch_size*(self.cfg.worker.rollout_length if self.cfg.worker.sample_length<=0 else self.cfg.worker.sample_length)
+        global_step=rollout_epoch*self.batch_size*self.cfg.worker.rollout_length
         return global_step
     
     def log_to_tensorboard(self, results, timer_results, rollout_epoch, main_tag="Rollout"):
