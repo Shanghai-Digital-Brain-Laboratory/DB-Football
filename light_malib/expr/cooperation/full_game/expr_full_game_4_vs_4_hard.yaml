@@ -23,13 +23,13 @@ framework:
     type: "win_rate_stopper"
     kwargs:
       min_win_rate: 0.9
-      max_steps: 10000          #iteration at each psro round
+      max_steps: 670          #iteration at each psro round
 agent_manager:
   num_agents: 2
   share_policies: False
 
 evaluation_manager:
-  num_eval_rollouts: 50
+  num_eval_rollouts: 1
 
 policy_data_manager:
   update_func: "gr_football" 
@@ -109,20 +109,8 @@ rollout_manager:
           other_config_options:
             action_set: v2  #default/v2, v2 is only used for built-in AI
         reward_config:
-          win_reward: 0
-          preprocess_score: 0
-          ball_position_reward: 0
-          yellow_reward: 5
-          min_dist_reward: 0
-          goal_reward: 5
-          #pass_reward: 0.02
-          shot_reward: 0
-          lost_ball_reward: 0.
-          player_move_reward: 0.
-          dist_goal_to_line: 0
-          role_based_r: 0
-          pure_goal: 0
-          pure_lose_goal: 0
+          goal_reward: 0
+          official_reward: 1
     credit_reassign:
     decaying_exploration:
       init_noise: 0             #random exploration noise level
@@ -139,13 +127,13 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 256 # how many data sample from DatasetServer per time.
+  batch_size: ${rollout_manager.batch_size} # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
       resources:
         num_cpus: 1
-  num_trainers: 8 # equals to number of GPUs by default
+  num_trainers: 1 # equals to number of GPUs by default
   # control the frequency of remote parameter update
   update_interval: 1
   gpu_preload: False
@@ -173,7 +161,7 @@ data_server:
   table_cfg:
     capacity: 1000
     sampler_type: "lumrf"
-    sample_max_usage: 10000
+    sample_max_usage: 1
     rate_limiter_cfg:
       min_size: ${training_manager.batch_size}
       # r_w_ratio: 10.0
@@ -225,7 +213,7 @@ populations:
         gamma: 1.0
         use_cuda: False  # enable cuda or not
         use_q_head: False
-        ppo_epoch: 5
+        ppo_epoch: 4
         num_mini_batch: 1  # the number of mini-batches
         
         return_mode: new_gae

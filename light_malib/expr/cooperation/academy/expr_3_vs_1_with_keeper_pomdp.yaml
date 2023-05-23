@@ -1,5 +1,5 @@
 expr_group: gr_football
-expr_name: benchmark_academy_3_vs_1_with_keeper
+expr_name: benchmark_academy_3_vs_1_with_keeper_pomdp
 log_dir: ./logs             #log directory
 seed: 0
 eval_only: False            #True if only want evaluation
@@ -23,7 +23,7 @@ framework:
     type: "win_rate_stopper"
     kwargs:
       min_win_rate: 1.1
-      max_steps: 100000          #iteration at each psro round
+      max_steps: 300          #iteration at each psro round
 agent_manager:
   num_agents: 2
   share_policies: False
@@ -67,7 +67,7 @@ rollout_manager:
       num_cpus: 1
       resources:
         - ["node:${distributed.nodes.master.ip}",0.01]
-  num_workers: 20     # numbers of parallel rollout worker, one env per worker by default
+  num_workers: 80     # numbers of parallel rollout worker, one env per worker by default
   seed: 12345
   saving_interval: 100 # the frequency of dumping model's weight
   batch_size: ${rollout_manager.num_workers}
@@ -112,11 +112,6 @@ rollout_manager:
           goal_reward: 0
           official_reward: 1
     credit_reassign:
-      goal: 0
-      assist: 0
-      loseball: 0.
-      halt_loseball: 0.
-      gainball: 0
     decaying_exploration:
       init_noise: 0             #random exploration noise level
       total_epoch_to_zero: 2000    #number of epoch when exploration noise decay to zero
@@ -219,7 +214,7 @@ populations:
         gamma: 0.99
         use_cuda: False  # enable cuda or not
         use_q_head: False
-        ppo_epoch: 5
+        ppo_epoch: 3
         num_mini_batch: 1  # the number of mini-batches
         
         return_mode: new_gae

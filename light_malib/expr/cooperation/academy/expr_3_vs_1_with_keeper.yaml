@@ -18,12 +18,12 @@ framework:
   name: "psro"                #framework name
   max_rounds: 1         #psro rounds
   meta_solver: "nash"         #'nash', 'uniform', 'pfsp'
-  sync_training: False
+  sync_training: True
   stopper:
     type: "win_rate_stopper"
     kwargs:
       min_win_rate: 1.1
-      max_steps: 100000          #iteration at each psro round
+      max_steps: 300          #iteration at each psro round
 agent_manager:
   num_agents: 2
   share_policies: False
@@ -112,11 +112,6 @@ rollout_manager:
           goal_reward: 0
           official_reward: 1
     credit_reassign:
-      goal: 0
-      assist: 0
-      loseball: 0.
-      halt_loseball: 0.
-      gainball: 0
     decaying_exploration:
       init_noise: 0             #random exploration noise level
       total_epoch_to_zero: 2000    #number of epoch when exploration noise decay to zero
@@ -132,7 +127,7 @@ training_manager:
   master_addr: "127.0.0.1"
   master_port:  "12774"
   local_queue_size: 1
-  batch_size: 256 # how many data sample from DatasetServer per time.
+  batch_size: ${rollout_manager.batch_size} # how many data sample from DatasetServer per time.
   num_prefetchers: 1
   data_prefetcher:
     distributed:
@@ -166,7 +161,7 @@ data_server:
   table_cfg:
     capacity: 1000
     sampler_type: "lumrf"
-    sample_max_usage: 10000
+    sample_max_usage: 1
     rate_limiter_cfg:
       min_size: ${training_manager.batch_size}
       # r_w_ratio: 10.0
@@ -218,7 +213,7 @@ populations:
         gamma: 0.99
         use_cuda: False  # enable cuda or not
         use_q_head: False
-        ppo_epoch: 5
+        ppo_epoch: 3
         num_mini_batch: 1  # the number of mini-batches
         
         return_mode: new_gae

@@ -82,57 +82,32 @@ class Rewarder:
             if action == 12:
                 single_shot_reward[obs["active"]] += 1
 
+            # reward = (
+            #     self.reward_config["win_reward"] * win_reward(obs)
+            #     + self.reward_config["preprocess_score"]
+            #     * preprocess_score(obs, rew, self.player_last_hold_ball)
+            #     + self.reward_config["ball_position_reward"]
+            #     * ball_position_reward(obs, self.player_last_hold_ball)
+            #     + self.reward_config["yellow_reward"] * yellow_reward(prev_obs, obs)
+            #     - self.reward_config["min_dist_reward"]
+            #     * min_dist_individual_reward(obs)
+            #     + self.reward_config["goal_reward"] * goal_reward(prev_obs, obs)
+            #     + self.reward_config["lost_ball_reward"]
+            #     * lost_ball_reward(prev_obs, obs, self.player_last_hold_ball)
+            #     + self.reward_config["player_move_reward"]
+            #     * player_move_reward(prev_obs, obs)
+            #     + self.reward_config["dist_goal_to_line"] * dist_goal_to_line(obs)
+            #     + self.reward_config["shot_reward"] * single_shot_reward[obs["active"]]
+            #     + self.reward_config["role_based_r"] * role_based_r(prev_obs, obs)
+            #     + self.reward_config["pure_goal"] * pure_goal(prev_obs, obs)
+            #     + self.reward_config["pure_lose_goal"] * pure_lose_goal(prev_obs, obs)
+            #     # + 10 * shot_reward[active_player]
+            # )
             reward = (
-                self.reward_config["win_reward"] * win_reward(obs)
-                + self.reward_config["preprocess_score"]
-                * preprocess_score(obs, rew, self.player_last_hold_ball)
-                + self.reward_config["ball_position_reward"]
-                * ball_position_reward(obs, self.player_last_hold_ball)
-                + self.reward_config["yellow_reward"] * yellow_reward(prev_obs, obs)
-                - self.reward_config["min_dist_reward"]
-                * min_dist_individual_reward(obs)
-                + self.reward_config["goal_reward"] * goal_reward(prev_obs, obs)
-                + self.reward_config["lost_ball_reward"]
-                * lost_ball_reward(prev_obs, obs, self.player_last_hold_ball)
-                + self.reward_config["player_move_reward"]
-                * player_move_reward(prev_obs, obs)
-                + self.reward_config["dist_goal_to_line"] * dist_goal_to_line(obs)
-                + self.reward_config["shot_reward"] * single_shot_reward[obs["active"]]
-                + self.reward_config["role_based_r"] * role_based_r(prev_obs, obs)
-                + self.reward_config["pure_goal"] * pure_goal(prev_obs, obs)
-                + self.reward_config["pure_lose_goal"] * pure_lose_goal(prev_obs, obs)
-                # + 10 * shot_reward[active_player]
+                    self.reward_config["goal_reward"] * goal_reward(prev_obs, obs)
+                    + self.reward_config["official_reward"] * rew
             )
 
-            adaptive_attack_defence = self.reward_config.get(
-                "adaptive_attack_defence", 0
-            )
-            if adaptive_attack_defence:
-                if obs["score"][0] >= obs["score"][1] + 2:
-                    if reward > 0:
-                        reward *= 0.5
-                elif obs["score"][0] >= obs["score"][1] + 4:
-                    if reward > 0:
-                        reward *= 0.2
-                elif obs["score"][0] >= obs["score"][1] + 5:
-                    if reward > 0:
-                        reward = min(reward, 0)
-                elif obs["score"][0] <= obs["score"][1] - 2:
-                    if reward < 0:
-                        reward *= 0.5
-                elif obs["score"][0] <= obs["score"][1] - 4:
-                    if reward < 0:
-                        reward *= 0.2
-                elif obs["score"][0] <= obs["score"][1] - 5:
-                    if reward < 0:
-                        reward = max(reward, 0)
-            # return calc_skilled_attack_reward(rew, prev_obs, obs) + shot_reward[obs['active']]
-
-            # goal_r = goal_reward(prev_obs, obs)
-            # if goal_r > 0:
-            #     shot_reward_c = 5
-            # else:
-            #     shot_reward_c = 0
 
         return reward
 
