@@ -94,7 +94,7 @@ class PBTRunner:
     def run(self):
         self.scheduler.initialize(self.cfg.populations)
         if self.cfg.eval_only:
-            self.evaluation_manager.eval()
+            self.evaluation_manager.eval(eval_more_metrics=True)
         else:
             while True:
                 self.evaluation_manager.eval()

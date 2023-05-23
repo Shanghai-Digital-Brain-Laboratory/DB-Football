@@ -134,7 +134,7 @@ dmypy.json
 .vscode
 .idea
 _build
-logs
+logs*
 demos
 prof/
 .DS_Store
