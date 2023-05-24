@@ -140,13 +140,15 @@ class MAPPOLoss(LossFunc):
             weight_decay=self._params["weight_decay"]
         )
         
-    def loss_compute(self, sample):
+        self.optimizer.zero_grad()
+        
+    def loss_compute(self, sample, update):
         policy = self._policy
         policy.train()                
         if self._use_seq:
-            return self.loss_compute_sequential(sample)
+            return self.loss_compute_sequential(sample, update=update)
         else:
-            return self.loss_compute_simultaneous(sample)
+            return self.loss_compute_simultaneous(sample, update=update)
             
     def _select_data_from_agent_ids(
         self,
@@ -170,7 +172,8 @@ class MAPPOLoss(LossFunc):
         self, 
         sample,
         agent_ids:np.ndarray=None,
-        update_actor:bool=True
+        update_actor:bool=True,
+        update=True
     ):
         # agent_ids not None means block update
         if agent_ids is not None:
@@ -333,14 +336,16 @@ class MAPPOLoss(LossFunc):
         total_loss = policy_loss + value_loss * self._policy.custom_config.get("value_loss_coef",1.0)
 
         # ============================== Optimizer ================================
-        self.optimizer.zero_grad()
         total_loss.backward()        
         if self._use_max_grad_norm:
             for param_group in self.optimizer.param_groups:
                 torch.nn.utils.clip_grad_norm_(
                     param_group["params"], self.max_grad_norm
                 )
-        self.optimizer.step()
+        
+        if update:
+            self.optimizer.step()
+            self.optimizer.zero_grad()
 
         # ============================== Statistics ================================
         if update_actor:
@@ -372,7 +377,7 @@ class MAPPOLoss(LossFunc):
             
         return stats
     
-    def loss_compute_sequential(self, sample):
+    def loss_compute_sequential(self, sample, update=True):
         '''
         NOTE(jh): sharing policy is actually not suggested in sequentially-updating agorithm.
         the reason is the update of one agent will also affect others' policies that is not carefully analized.
@@ -394,8 +399,8 @@ class MAPPOLoss(LossFunc):
         stats = {}
         for a_ids in self._agent_seq:
             if self._use_two_stage:
-                self.loss_compute_simultaneous(sample, a_ids, update_actor=False)
-            _stats = self.loss_compute_simultaneous(sample, a_ids)
+                self.loss_compute_simultaneous(sample, a_ids, update_actor=False, update=update)
+            _stats = self.loss_compute_simultaneous(sample, a_ids, update=update)
             for k, v in _stats.items():
                 if k in stats:
                     stats[k] += v

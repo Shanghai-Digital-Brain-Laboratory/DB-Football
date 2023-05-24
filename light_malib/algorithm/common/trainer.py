@@ -42,7 +42,7 @@ class Trainer(metaclass=ABCMeta):
         return self._training_config
 
     @abstractmethod
-    def optimize(self, batch) -> Dict[str, Any]:
+    def optimize(self, batch, **kwargs) -> Dict[str, Any]:
         """Execution policy optimization then return a dict of statistics"""
         pass
 

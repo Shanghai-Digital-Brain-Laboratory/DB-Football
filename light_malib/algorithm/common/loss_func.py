@@ -67,12 +67,7 @@ class LossFunc(metaclass=ABCMeta):
 
     def __call__(self, *args, **kwargs) -> Dict[str, Any]:
         """Compute loss function here, but not optimize"""
-        return tensor_cast(
-            custom_caster=self._params["custom_caster"],
-            callback=None,
-            dtype_mapping=None,
-            device=self._params["device"],
-        )(self.loss_compute)(*args, **kwargs)
+        return self.loss_compute(*args, **kwargs)
 
     @abstractmethod
     def loss_compute(self, *args, **kwargs):

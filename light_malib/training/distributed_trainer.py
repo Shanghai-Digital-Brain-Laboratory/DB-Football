@@ -156,13 +156,13 @@ class DistributedTrainer:
     def is_main(self):
         return self.local_rank == 0
 
-    def optimize(self, batch=None):
+    def optimize(self, batch=None, update=True):
         global_timer.record("trainer_data_start")
         while batch is None:
             batch = self.local_queue_get()
         global_timer.time("trainer_data_start", "trainer_data_end", "trainer_data")
         global_timer.record("trainer_optimize_start")
-        training_info = self.trainer.optimize(batch)
+        training_info = self.trainer.optimize(batch, update=update)
         global_timer.time(
             "trainer_optimize_start", "trainer_optimize_end", "trainer_optimize"
         )
