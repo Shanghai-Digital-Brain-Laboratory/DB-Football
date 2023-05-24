@@ -392,18 +392,20 @@ class RolloutManager:
             with self.rollout_epoch_lock:
                 rollout_epoch = self.rollout_epoch  
 
-            if submit_ctr%(self.eval_freq*self.batch_size)==0:
-                if eval_submit_ctr==0:
-                    eval_rollout_epoch=rollout_epoch
-                    Logger.info(
-                        "Rollout Eval {}, Global Step {}".format(
-                            eval_rollout_epoch, self.get_global_step(eval_rollout_epoch)
-                        )
-                    )
-                    eval=True   
-                elif eval_submit_ctr==self.eval_batch_size:
-                    eval_submit_ctr=0
-                    eval=False          
+            # if submit_ctr%(self.eval_freq*self.batch_size)==0:
+            #     if eval_submit_ctr==0:
+            #         eval_rollout_epoch=rollout_epoch
+            #         Logger.info(
+            #             "Rollout Eval {}, Global Step {}".format(
+            #                 eval_rollout_epoch, self.get_global_step(eval_rollout_epoch)
+            #             )
+            #         )
+            #         eval=True   
+            #     elif eval_submit_ctr==self.eval_batch_size:
+            #         eval_submit_ctr=0
+            #         eval=False          
+                
+            eval=False    
                 
             self.worker_pool.submit(
                 lambda worker, v: worker.rollout.remote(
@@ -412,34 +414,35 @@ class RolloutManager:
                 value=None,
             )
             
-            if eval:
-                eval_submit_ctr += 1
-            else:
-                submit_ctr += 1
+            submit_ctr+=1
+            # if eval:
+            #     eval_submit_ctr += 1
+            # else:
+            #     submit_ctr += 1
             
-            if result["eval"]:                
-                with self.eval_data_buffer_lock:
-                    self.eval_data_buffer.put_nowait(result)
-                    while self.eval_data_buffer.qsize() > self.eval_data_buffer_max_size:
-                        self.eval_data_buffer.get_nowait()
-                    if self.eval_data_buffer.qsize() >= self.eval_batch_size:
-                        rollout_results = [
-                            self.eval_data_buffer.get_nowait() for i in range(self.eval_batch_size)
-                        ]
-                        results, timer_results =self.reduce_rollout_results(rollout_results)
-                        Logger.info(
-                            "Rollout Eval {}: average reward: {}, average win: {}".format(
-                                eval_rollout_epoch, results["reward"], results["win"] 
-                            )
-                        )
-                        self.log_to_tensorboard(results,timer_results,rollout_epoch=eval_rollout_epoch,main_tag="RolloutEval")       
-            else:
-                with self.data_buffer_lock:
-                    self.data_buffer.put_nowait(result)
-                    while self.data_buffer.qsize() > self.data_buffer_max_size:
-                        self.data_buffer.get_nowait()
-                    if self.data_buffer.qsize() >= self.batch_size:
-                        self.data_buffer_ready.notify()
+            # if result["eval"]:                
+                # with self.eval_data_buffer_lock:
+                #     self.eval_data_buffer.put_nowait(result)
+                #     while self.eval_data_buffer.qsize() > self.eval_data_buffer_max_size:
+                #         self.eval_data_buffer.get_nowait()
+                #     if self.eval_data_buffer.qsize() >= self.eval_batch_size:
+                #         rollout_results = [
+                #             self.eval_data_buffer.get_nowait() for i in range(self.eval_batch_size)
+                #         ]
+                #         results, timer_results =self.reduce_rollout_results(rollout_results)
+                #         Logger.info(
+                #             "Rollout Eval {}: average reward: {}, average win: {}".format(
+                #                 eval_rollout_epoch, results["reward"], results["win"] 
+                #             )
+                #         )
+                #         self.log_to_tensorboard(results,timer_results,rollout_epoch=eval_rollout_epoch,main_tag="RolloutEval")       
+            # else:
+            with self.data_buffer_lock:
+                self.data_buffer.put_nowait(result)
+                while self.data_buffer.qsize() > self.data_buffer_max_size:
+                    self.data_buffer.get_nowait()
+                if self.data_buffer.qsize() >= self.batch_size:
+                    self.data_buffer_ready.notify()
 
         # FIXME(jh) we have to wait all tasks to terminate? any better way?
         while True:
