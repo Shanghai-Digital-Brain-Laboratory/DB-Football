@@ -43,8 +43,6 @@ class MAPPOTrainer(Trainer):
         self._loss = MAPPOLoss()
 
     def optimize(self, batch, **kwargs):
-        update=kwargs.get("update",True)
-        
         total_opt_result = defaultdict(lambda: 0)
         policy = self.loss.policy
         
@@ -76,7 +74,7 @@ class MAPPOTrainer(Trainer):
                 
             for mini_batch in data_generator_fn():
                 global_timer.record("loss_start")
-                tmp_opt_result = self.loss(mini_batch,update)
+                tmp_opt_result = self.loss(mini_batch)
                 global_timer.time("loss_start", "loss_end", "loss")
                 for k, v in tmp_opt_result.items():
                     total_opt_result[k] = v

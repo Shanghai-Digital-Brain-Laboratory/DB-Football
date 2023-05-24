@@ -148,14 +148,9 @@ class TrainingManager:
                     break
             training_steps += 1
 
-            if training_steps % self.cfg.update_interval == 0:
-                update=True
-            else:
-                update=False
-
             global_timer.record("optimize_start")
             statistics_list = ray.get(
-                [trainer.optimize.remote(update=update) for trainer in self.trainers]
+                [trainer.optimize.remote() for trainer in self.trainers]
             )
             global_timer.time("optimize_start", "optimize_end", "optimize")
 
