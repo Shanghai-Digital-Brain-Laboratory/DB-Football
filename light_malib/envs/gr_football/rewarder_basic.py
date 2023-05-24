@@ -106,6 +106,7 @@ class Rewarder:
             reward = (
                     self.reward_config["goal_reward"] * goal_reward(prev_obs, obs)
                     + self.reward_config["official_reward"] * rew
+                    + self.reward_config["yellow_reward"] * yellow_reward(prev_obs, obs)
             )
 
 
