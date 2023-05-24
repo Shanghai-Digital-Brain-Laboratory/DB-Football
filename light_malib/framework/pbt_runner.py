@@ -53,19 +53,19 @@ class PBTRunner:
         agents = AgentManager.build_agents(self.cfg.agent_manager)
 
         self.data_server = DataServer.options(
-            name="DataServer", max_concurrency=500
+            name="DataServer", max_concurrency=self.cfg.rollout_manager.num_workers+5
         ).remote("DataServer", self.cfg.data_server)
 
         self.policy_server = PolicyServer.options(
-            name="PolicyServer", max_concurrency=500
+            name="PolicyServer", max_concurrency=self.cfg.rollout_manager.num_workers+5
         ).remote("PolicyServer", self.cfg.policy_server, agents)
 
         self.rollout_manager = RolloutManager.options(
-            name="RolloutManager", max_concurrency=500
+            name="RolloutManager", max_concurrency=self.cfg.rollout_manager.num_workers+5
         ).remote("RolloutManager", self.cfg.rollout_manager, agents)
 
         self.training_manager = TrainingManager.options(
-            name="TrainingManager", max_concurrency=50
+            name="TrainingManager", max_concurrency=5
         ).remote("TrainingManager", self.cfg.training_manager)
 
         # NOTE: self.agents is not shared with remote actors.

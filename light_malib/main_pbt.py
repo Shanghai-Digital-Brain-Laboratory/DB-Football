@@ -111,7 +111,7 @@ def main():
     from light_malib.utils.distributed import get_resources
 
     Monitor = ray.remote(**get_resources(cfg.monitor.distributed.resources))(Monitor)
-    monitor = Monitor.options(name="Monitor", max_concurrency=100).remote(cfg)
+    monitor = Monitor.options(name="Monitor", max_concurrency=5).remote(cfg)
 
     runner = PBTRunner(cfg)
 
