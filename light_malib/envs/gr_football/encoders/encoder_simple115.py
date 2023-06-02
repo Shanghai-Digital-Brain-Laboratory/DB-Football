@@ -17,7 +17,7 @@ The official simple115_v2 feature observation, added with action mask to align w
 
 import numpy as np
 from light_malib.utils.logger import Logger
-from gym.spaces import Box
+from gym.spaces import Box, Discrete
 from gfootball.env.wrappers import Simple115StateWrapper
 
 
@@ -50,6 +50,15 @@ class FeatureEncoder:
     @property
     def observation_space(self):
         return Box(low=-1000, high=1000, shape=[115 + 19])
+
+    @property
+    def global_observation_space(self):
+        return self.observation_space
+
+    @property
+    def action_space(self):
+        return Discrete(19)
+
 
     def encode_each(self, state):
         obs = state.obs
