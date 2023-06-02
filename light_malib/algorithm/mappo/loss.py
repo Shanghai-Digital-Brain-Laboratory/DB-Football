@@ -68,7 +68,7 @@ class MAPPOLoss(LossFunc):
         self.max_grad_norm = policy.custom_config.get("max_grad_norm", 10)
 
         self.sub_algorithm_name = policy.custom_config.get("sub_algorithm_name","MAPPO")   
-        assert self.sub_algorithm_name in ["MAPPO","CoPPO","HAPPO","A2PO"]
+        assert self.sub_algorithm_name in ["IPPO","MAPPO","CoPPO","HAPPO","A2PO"]
         
         if self.sub_algorithm_name in ["IPPO","MAPPO"]:
             self._use_seq=False
