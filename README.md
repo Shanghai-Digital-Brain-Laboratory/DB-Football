@@ -26,6 +26,9 @@ Citation
 }
 ```
 
+<br>
+For experiment on academy scenario, please see our new repository : [GRF_MARL](https://github.com/jidiai/GRF_MARL)
+
 
 ## Contents
 1. Install
