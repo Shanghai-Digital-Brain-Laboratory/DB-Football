@@ -1,3 +1,4 @@
+gym==0.26.2
 ray==1.8.0
 omegaconf==2.0.4
 grpcio
@@ -11,7 +12,6 @@ tensorboard
 readerwriterlock
 nashpy==0.0.21
 psutil~=5.8.0
-gym==0.21.0
 dataclasses==0.6
 wrapt==1.12.1
 pyyaml==5.4.1
