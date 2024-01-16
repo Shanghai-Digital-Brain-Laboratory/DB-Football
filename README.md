@@ -15,14 +15,18 @@ Our codes are based on Light-MALib, which is a simplified version of [MALib](htt
 
 <img src="imgs/L_MALib.svg" width="500px">
 
-Citation
+**Citation**
+
+Song, Y., Jiang, H., Tian, Z. et al. An Empirical Study on Google Research Football Multi-agent Scenarios. Mach. Intell. Res. (2024). https://doi.org/10.1007/s11633-023-1426-8
+
 ```
-@article{Song2023AnES,
+@article{song2024empirical,
   title={An Empirical Study on Google Research Football Multi-agent Scenarios},
-  author={Yan Song and He Jiang and Zheng Tian and Haifeng Zhang and Yingping Zhang and Jiangcheng Zhu and Zonghong Dai and Weinan Zhang and Jun Wang},
-  journal={ArXiv},
-  year={2023},
-  volume={abs/2305.09458}
+  author={Song, Yan and Jiang, He and Tian, Zheng and Zhang, Haifeng and Zhang, Yingping and Zhu, Jiangcheng and Dai, Zonghong and Zhang, Weinan and Wang, Jun},
+  journal={Machine Intelligence Research},
+  pages={1--22},
+  year={2024},
+  publisher={Springer}
 }
 ```
 
